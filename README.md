@@ -247,7 +247,6 @@ Mỗi thành viên chỉ duy trì tối đa **1 nhánh khởi tạo** và **3 nh
 ## 9. Giải thích thuật ngữ
 
 Phần tóm tắt nhanh giúp cả nhóm nắm vững các khái niệm kỹ thuật xuất hiện trong dự án:
-
 **Nhóm kiến trúc & Dữ liệu**
 - **Frontend & Backend:** Frontend (React) là giao diện quầy phục vụ người dùng nhìn thấy trên trình duyệt; Backend (Laravel) là bộ máy nghiệp vụ phía sau kiểm tra công nợ, khóa tồn kho và tính tiền phạt.
 - **API:** Giao thức để Frontend gửi yêu cầu lên Backend và nhận kết quả dữ liệu JSON trả về.
