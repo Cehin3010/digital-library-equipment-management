@@ -1,316 +1,338 @@
+# Tài liệu Thiết kế Cơ sở Dữ liệu
 
-## Database (C3 - LAB7)
-
-## Chương 3. Thiết kế cơ sở dữ liệu
+## Chương 3. Thiết kế cơ sở dữ liệu (PostgreSQL 16)
 
 ### 3.1. Xác định các thực thể
 
-Cơ sở dữ liệu quan hệ gồm 9 bảng, suy ra từ Use Case của Lab 2 và User Story của Lab 3.
+Cơ sở dữ liệu được thiết kế trên hệ quản trị **PostgreSQL 16**, chuẩn hóa ở dạng chuẩn 3 (3NF) gồm **11 bảng** phục vụ trọn vẹn 6 phân hệ chức năng (`F-01` → `F-12`) và cổng thanh toán (`F-06b`):
 
-| Bảng | Chức năng | Phục vụ |
-| --- | --- | --- |
-| roles | Danh mục vai trò: Sinh viên, Giảng viên, Thủ thư, Admin | UC01, UC03 |
-| users | Tài khoản và thông tin người dùng | UC01, UC03 |
-| categories | Danh mục phân loại tài nguyên, có thể lồng nhau | UC02, UC04 |
-| resources | Sách, thiết bị, phòng học và số lượng tồn kho | UC02, UC04, UC05 |
-| loans | Phiếu mượn: giữ chỗ, chờ duyệt, đang mượn, đã trả | UC06, UC07, UC08, UC09 |
-| penalties | Phiếu phạt trả trễ, hư hỏng, mất | UC08, UC09 |
-| payments | Giao dịch thanh toán tiền phạt qua VNPay, MoMo | UC10 |
-| system_settings | Tham số: mượn tối đa, mức phạt mỗi ngày, thời gian giữ chỗ | US16 |
-| notifications | Thông báo nhắc hạn trả | US09 |
+| STT | Tên bảng | Vai trò lưu trữ | Phân hệ phục vụ |
+| --- | --- | --- | --- |
+| 1 | `roles` | Danh mục 4 vai trò: Sinh viên, Giảng viên, Cán bộ Thư viện, Quản trị viên | `F-11` |
+| 2 | `users` | Hồ sơ người dùng và trạng thái tài khoản trường | `F-11` |
+| 3 | `login_otps` | Mã xác thực OTP một lần (đã băm), thời hạn và số lần thử sai | `F-11` |
+| 4 | `categories` | Danh mục phân loại học liệu, thiết bị và không gian phòng (đa cấp) | `F-01` |
+| 5 | `resources` | Kho hợp nhất 3 nhóm tài nguyên: Tài liệu số, Tài sản vật lý và Phòng học | `F-01`, `F-02`, `F-03`, `F-07` |
+| 6 | `loans` | Phiếu đặt mượn tài sản & lịch đặt phòng học kèm mã QR giao/nhận | `F-03`, `F-04`, `F-07`, `F-08` |
+| 7 | `penalties` | Phiếu phạt vi phạm (trả trễ hạn, làm hư hỏng hoặc làm mất tài sản) | `F-06`, `F-09`, `F-10` |
+| 8 | `payments` | Lịch sử giao dịch thanh toán phí phạt qua VNPay và MoMo | `F-06b` |
+| 9 | `notifications` | Lịch sử thông báo đẩy trên web và email nhắc hạn trả tự động | `F-05` |
+| 10 | `system_settings` | Bảng tham số cấu hình động của hệ thống (hạn mức, đơn giá phạt, thời gian giữ chỗ) | `F-06`, `F-08`, `F-11` |
+| 11 | `audit_logs` | Nhật ký kiểm toán lưu vết mọi thao tác quan trọng trên hệ thống | `F-12` |
 
-### 3.2. Sơ đồ ERD
+---
+
+### 3.2. Sơ đồ Quan hệ Thực thể (ERD)
 
 ```mermaid
 erDiagram
-  ROLES ||--o{ USERS : "có"
-  USERS ||--o{ LOANS : "đặt mượn"
-  USERS ||--o{ LOANS : "duyệt hoặc nhận trả"
-  CATEGORIES ||--o{ CATEGORIES : "cha - con"
+  ROLES ||--o{ USERS : "phân quyền"
+  USERS ||--o{ LOGIN_OTPS : "yêu cầu mã"
+  CATEGORIES ||--o{ CATEGORIES : "danh mục con"
   CATEGORIES ||--o{ RESOURCES : "phân loại"
-  RESOURCES ||--o{ LOANS : "được mượn"
-  LOANS ||--o{ PENALTIES : "phát sinh"
+  USERS ||--o{ LOANS : "đặt mượn"
+  USERS ||--o{ LOANS : "duyệt / nhận trả"
+  RESOURCES ||--o{ LOANS : "được đặt"
+  LOANS ||--o{ PENALTIES : "phát sinh phạt"
   USERS ||--o{ PENALTIES : "chịu phạt"
-  PENALTIES ||--o{ PAYMENTS : "được thanh toán"
-  USERS ||--o{ NOTIFICATIONS : "nhận"
-  LOANS ||--o{ NOTIFICATIONS : "liên quan"
-  USERS ||--o{ SYSTEM_SETTINGS : "cập nhật"
+  PENALTIES ||--o{ PAYMENTS : "thanh toán qua"
+  USERS ||--o{ NOTIFICATIONS : "nhận thông báo"
+  LOANS ||--o{ NOTIFICATIONS : "nhắc hạn cho"
+  USERS ||--o{ SYSTEM_SETTINGS : "cấu hình"
+  USERS ||--o{ AUDIT_LOGS : "thực hiện"
+
   ROLES {
-    bigint role_id PK
+    bigserial role_id PK
     varchar role_name UK
     varchar description
   }
   USERS {
-    bigint user_id PK
+    bigserial user_id PK
     varchar email UK
-    varchar password_hash
     varchar full_name
     varchar user_code UK
     varchar phone
     bigint role_id FK
     varchar status
-    datetime created_at
-    datetime last_login_at
+    timestamp created_at
+    timestamp last_login_at
+  }
+  LOGIN_OTPS {
+    bigserial otp_id PK
+    varchar email
+    varchar otp_hash
+    int attempts
+    timestamp expires_at
+    timestamp created_at
   }
   CATEGORIES {
-    bigint category_id PK
+    bigserial category_id PK
     varchar category_name
     bigint parent_id FK
   }
   RESOURCES {
-    bigint resource_id PK
+    bigserial resource_id PK
     bigint category_id FK
     varchar resource_type
     varchar title
     varchar author_or_brand
     varchar code UK
+    varchar file_url
     text description
     varchar location
     int total_quantity
     int available_quantity
     varchar status
-    datetime created_at
-    datetime updated_at
+    timestamp created_at
+    timestamp updated_at
   }
   LOANS {
-    bigint loan_id PK
+    bigserial loan_id PK
+    varchar qr_token UK
     bigint user_id FK
     bigint resource_id FK
     varchar status
-    datetime borrow_from
-    datetime due_date
-    datetime requested_at
-    datetime hold_expires_at
+    timestamp borrow_from
+    timestamp due_date
+    timestamp requested_at
+    timestamp hold_expires_at
     bigint approved_by FK
-    datetime approved_at
+    timestamp approved_at
     bigint received_by FK
-    datetime returned_at
+    timestamp returned_at
     varchar return_condition
     varchar reject_reason
   }
   PENALTIES {
-    bigint penalty_id PK
+    bigserial penalty_id PK
     bigint loan_id FK
     bigint user_id FK
     varchar penalty_type
     int overdue_days
-    decimal amount
+    numeric amount
     varchar status
     varchar note
     bigint created_by FK
-    datetime created_at
-    datetime paid_at
+    timestamp created_at
+    timestamp paid_at
   }
   PAYMENTS {
-    bigint payment_id PK
+    bigserial payment_id PK
     bigint penalty_id FK
     varchar gateway
     varchar txn_ref UK
     varchar gateway_txn_no
-    decimal amount
+    numeric amount
     varchar status
     varchar response_code
-    datetime created_at
-    datetime paid_at
+    timestamp created_at
+    timestamp paid_at
+  }
+  NOTIFICATIONS {
+    bigserial notification_id PK
+    bigint user_id FK
+    bigint loan_id FK
+    varchar type
+    varchar message
+    boolean is_read
+    timestamp created_at
+    timestamp sent_at
   }
   SYSTEM_SETTINGS {
     varchar setting_key PK
     varchar setting_value
     varchar description
     bigint updated_by FK
-    datetime updated_at
+    timestamp updated_at
   }
-  NOTIFICATIONS {
-    bigint notification_id PK
+  AUDIT_LOGS {
+    bigserial log_id PK
     bigint user_id FK
-    bigint loan_id FK
-    varchar type
-    varchar message
-    boolean is_read
-    datetime created_at
-    datetime sent_at
+    varchar action
+    varchar entity_type
+    bigint entity_id
+    jsonb details
+    varchar ip_address
+    timestamp created_at
   }
 ```
 
-Hình 3.1. Sơ đồ ERD của hệ thống.
+*Hình 3.1. Sơ đồ ERD tổng thể của hệ thống trên PostgreSQL 16.*
 
-### 3.3. Mô tả các bảng dữ liệu
+---
 
-- **loans** là bảng trung tâm: một dòng là một lần đặt mượn một tài nguyên, đi qua các trạng thái HOLDING, PENDING, BORROWING, RETURNED, REJECTED, CANCELLED, EXPIRED. Sách thường mượn theo số ngày; phòng và thiết bị mượn theo khung giờ `borrow_from` đến `due_date`, nên cùng một bảng phục vụ cả lịch trống (UC05).
-- **resources** giữ hai con số: `total_quantity` là số bản sở hữu, `available_quantity` là số bản còn cho mượn. Phòng học có `total_quantity` bằng 1.
-- **penalties** gắn với một phiếu mượn; một phiếu có thể phát sinh nhiều phiếu phạt (vừa trả trễ vừa hư hỏng).
-- **payments** ghi mỗi lần thử thanh toán, kể cả thất bại; một phiếu phạt chỉ có tối đa một giao dịch SUCCESS.
-- **system_settings** lưu cặp khóa và giá trị, gồm `MAX_ACTIVE_LOANS`, `LOAN_DAYS`, `FINE_PER_DAY`, `HOLD_MINUTES`, `REMIND_BEFORE_DAYS`.
+### 3.3. Giải thích mô hình lưu trữ cốt lõi
 
-### 3.4. Data Dictionary
+- **Hợp nhất 3 nhóm tài nguyên trong bảng `resources`:** Phân biệt qua trường `resource_type` gồm `DIGITAL` (Tài liệu số có `file_url` để mở Online Reader `F-02`, không giới hạn tồn kho vật lý), `BOOK` (Sách in), `EQUIPMENT` (Thiết bị học tập) và `ROOM` (Phòng học có `total_quantity = 1`). Trạng thái hiển thị màu sắc trên UI dựa vào `status` và `available_quantity` (Xanh: `ACTIVE` & còn trống; Đỏ: `available_quantity = 0`; Xám: `MAINTENANCE`).
+- **Quản lý mượn tài sản & đặt phòng trên bảng `loans`:** Cả mượn sách theo ngày (`F-03`) và đặt phòng theo khung giờ (`F-07`) đều dùng cặp mốc thời gian `borrow_from` → `due_date`. Cột `qr_token` sinh chuỗi định danh duy nhất phục vụ quét mã QR nhận/trả nhanh tại quầy (`F-04`).
+- **Xác thực không mật khẩu (`login_otps`):** Hệ thống không lưu mật khẩu cố định mà tạo mã OTP 6 số gửi qua email trường, chỉ lưu chuỗi băm `otp_hash` kèm bộ đếm `attempts` để chống dò mã tự động (`F-11`).
+- **Nhật ký kiểm toán (`audit_logs`):** Sử dụng kiểu dữ liệu `JSONB` đặc trưng của PostgreSQL ở cột `details` để lưu linh hoạt dữ liệu trước/sau khi thay đổi của mọi hành động mượn, trả, hủy, phạt và cấu hình (`F-12`).
 
-**Bảng roles**
+---
 
-| Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
-| --- | --- | --- | --- | --- |
-| role_id | BIGINT | PK | AUTO_INCREMENT | Mã vai trò |
-| role_name | VARCHAR(30) | | UNIQUE, NOT NULL | STUDENT, LECTURER, LIBRARIAN, ADMIN |
-| description | VARCHAR(255) | | NULL | Mô tả vai trò |
+### 3.4. Từ điển Dữ liệu (Data Dictionary)
 
-**Bảng users**
+**1. Bảng `roles`**
 
 | Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
 | --- | --- | --- | --- | --- |
-| user_id | BIGINT | PK | AUTO_INCREMENT | Mã người dùng |
-| email | VARCHAR(100) | | UNIQUE, NOT NULL | Email trường dùng để đăng nhập (BR08) |
-| password_hash | VARCHAR(255) | | NOT NULL | Mật khẩu đã mã hóa Bcrypt |
-| full_name | VARCHAR(100) | | NOT NULL | Họ và tên |
-| user_code | VARCHAR(20) | | UNIQUE, NOT NULL | Mã sinh viên, giảng viên hoặc cán bộ |
-| phone | VARCHAR(20) | | NULL | Số điện thoại |
-| role_id | BIGINT | FK → roles | NOT NULL | Vai trò, quyết định quyền truy cập (BR07) |
-| status | VARCHAR(20) | | NOT NULL, mặc định ACTIVE | ACTIVE hoặc LOCKED |
-| created_at | DATETIME | | NOT NULL | Ngày tạo tài khoản |
-| last_login_at | DATETIME | | NULL | Lần đăng nhập gần nhất |
+| `role_id` | `BIGSERIAL` | PK | `NOT NULL` | Mã định danh vai trò tự tăng |
+| `role_name` | `VARCHAR(30)` | | `UNIQUE, NOT NULL` | `STUDENT`, `LECTURER`, `LIBRARIAN`, `ADMIN` |
+| `description` | `VARCHAR(255)` | | `NULL` | Mô tả phạm vi quyền hạn |
 
-**Bảng categories**
+**2. Bảng `users`**
 
 | Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
 | --- | --- | --- | --- | --- |
-| category_id | BIGINT | PK | AUTO_INCREMENT | Mã danh mục |
-| category_name | VARCHAR(100) | | NOT NULL | Tên danh mục |
-| parent_id | BIGINT | FK → categories | NULL | Danh mục cha, NULL nếu là gốc |
+| `user_id` | `BIGSERIAL` | PK | `NOT NULL` | Mã định danh người dùng |
+| `email` | `VARCHAR(100)` | | `UNIQUE, NOT NULL` | Email nhà trường dùng nhận OTP (`BR08`) |
+| `full_name` | `VARCHAR(100)` | | `NOT NULL` | Họ và tên đầy đủ |
+| `user_code` | `VARCHAR(20)` | | `UNIQUE, NOT NULL` | MSSV, Mã giảng viên hoặc Mã cán bộ |
+| `phone` | `VARCHAR(20)` | | `NULL` | Số điện thoại liên hệ |
+| `role_id` | `BIGINT` | FK → `roles` | `NOT NULL` | Vai trò phân quyền RBAC (`BR07`) |
+| `status` | `VARCHAR(20)` | | `DEFAULT 'ACTIVE'` | `ACTIVE` hoặc `LOCKED` |
+| `created_at` | `TIMESTAMP` | | `NOT NULL` | Thời điểm tạo tài khoản |
+| `last_login_at` | `TIMESTAMP` | | `NULL` | Thời điểm đăng nhập OTP gần nhất |
 
-**Bảng resources**
-
-| Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
-| --- | --- | --- | --- | --- |
-| resource_id | BIGINT | PK | AUTO_INCREMENT | Mã tài nguyên |
-| category_id | BIGINT | FK → categories | NOT NULL | Danh mục |
-| resource_type | VARCHAR(20) | | NOT NULL | BOOK, EQUIPMENT hoặc ROOM |
-| title | VARCHAR(255) | | NOT NULL | Tên sách, thiết bị hoặc phòng |
-| author_or_brand | VARCHAR(150) | | NULL | Tác giả hoặc hãng sản xuất |
-| code | VARCHAR(50) | | UNIQUE, NOT NULL | ISBN, số serial hoặc mã phòng |
-| description | TEXT | | NULL | Mô tả |
-| location | VARCHAR(100) | | NULL | Vị trí kệ hoặc kho |
-| total_quantity | INT | | NOT NULL, CHECK ≥ 0 | Tổng số bản sở hữu |
-| available_quantity | INT | | NOT NULL, CHECK 0 ≤ giá trị ≤ total_quantity | Số bản còn cho mượn (đã trừ giữ chỗ) |
-| status | VARCHAR(20) | | NOT NULL, mặc định ACTIVE | ACTIVE hoặc INACTIVE (xóa mềm) |
-| created_at | DATETIME | | NOT NULL | Ngày tạo |
-| updated_at | DATETIME | | NOT NULL | Ngày cập nhật cuối |
-
-**Bảng loans**
+**3. Bảng `login_otps`**
 
 | Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
 | --- | --- | --- | --- | --- |
-| loan_id | BIGINT | PK | AUTO_INCREMENT | Mã phiếu mượn |
-| user_id | BIGINT | FK → users | NOT NULL | Người mượn |
-| resource_id | BIGINT | FK → resources | NOT NULL | Tài nguyên được mượn |
-| status | VARCHAR(20) | | NOT NULL | HOLDING, PENDING, BORROWING, RETURNED, REJECTED, CANCELLED, EXPIRED |
-| borrow_from | DATETIME | | NOT NULL | Thời điểm bắt đầu mượn |
-| due_date | DATETIME | | NOT NULL, CHECK due_date > borrow_from | Hạn trả |
-| requested_at | DATETIME | | NOT NULL | Thời điểm đặt |
-| hold_expires_at | DATETIME | | NULL | Hết hạn giữ chỗ (requested_at + 10 phút), chỉ có khi HOLDING |
-| approved_by | BIGINT | FK → users | NULL | Thủ thư duyệt hoặc từ chối |
-| approved_at | DATETIME | | NULL | Thời điểm duyệt |
-| received_by | BIGINT | FK → users | NULL | Thủ thư nhận trả |
-| returned_at | DATETIME | | NULL | Thời điểm trả thực tế |
-| return_condition | VARCHAR(20) | | NULL | GOOD, DAMAGED hoặc LOST |
-| reject_reason | VARCHAR(255) | | NULL | Lý do từ chối |
+| `otp_id` | `BIGSERIAL` | PK | `NOT NULL` | Mã bản ghi OTP |
+| `email` | `VARCHAR(100)` | | `NOT NULL` | Email người dùng yêu cầu mã |
+| `otp_hash` | `VARCHAR(255)` | | `NOT NULL` | Bản băm một chiều (Bcrypt) của mã 6 chữ số |
+| `attempts` | `INT` | | `DEFAULT 0` | Số lần nhập sai (tối đa 5 lần) |
+| `expires_at` | `TIMESTAMP` | | `NOT NULL` | Thời điểm hết hạn (mặc định sau 5 phút) |
+| `created_at` | `TIMESTAMP` | | `NOT NULL` | Thời điểm phát hành mã (kiểm tra chờ 60s gửi lại) |
 
-**Bảng penalties**
+**4. Bảng `categories`**
 
 | Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
 | --- | --- | --- | --- | --- |
-| penalty_id | BIGINT | PK | AUTO_INCREMENT | Mã phiếu phạt |
-| loan_id | BIGINT | FK → loans | NOT NULL | Phiếu mượn phát sinh vi phạm |
-| user_id | BIGINT | FK → users | NOT NULL | Người bị phạt |
-| penalty_type | VARCHAR(20) | | NOT NULL | OVERDUE, DAMAGED hoặc LOST |
-| overdue_days | INT | | NULL, CHECK ≥ 0 | Số ngày trễ, chỉ dùng khi OVERDUE |
-| amount | DECIMAL(12,0) | | NOT NULL, CHECK > 0 | Số tiền phạt (VND) |
-| status | VARCHAR(20) | | NOT NULL, mặc định UNPAID | UNPAID hoặc PAID |
-| note | VARCHAR(255) | | NULL | Ghi chú, mô tả hư hỏng |
-| created_by | BIGINT | FK → users | NULL | Thủ thư lập phiếu; NULL nếu hệ thống tự tạo |
-| created_at | DATETIME | | NOT NULL | Ngày lập |
-| paid_at | DATETIME | | NULL | Ngày thanh toán xong |
+| `category_id` | `BIGSERIAL` | PK | `NOT NULL` | Mã danh mục |
+| `category_name` | `VARCHAR(100)` | | `NOT NULL` | Tên danh mục / Phân loại Dewey |
+| `parent_id` | `BIGINT` | FK → `categories` | `NULL` | Danh mục cha (`NULL` nếu là danh mục gốc) |
 
-**Bảng payments**
+**5. Bảng `resources`**
 
 | Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
 | --- | --- | --- | --- | --- |
-| payment_id | BIGINT | PK | AUTO_INCREMENT | Mã giao dịch nội bộ |
-| penalty_id | BIGINT | FK → penalties | NOT NULL | Phiếu phạt được thanh toán |
-| gateway | VARCHAR(20) | | NOT NULL | VNPAY hoặc MOMO |
-| txn_ref | VARCHAR(64) | | UNIQUE, NOT NULL | Mã tham chiếu gửi sang cổng, chống xử lý trùng IPN |
-| gateway_txn_no | VARCHAR(64) | | NULL | Mã giao dịch do cổng trả về |
-| amount | DECIMAL(12,0) | | NOT NULL, CHECK > 0 | Số tiền thanh toán |
-| status | VARCHAR(20) | | NOT NULL, mặc định PENDING | PENDING, SUCCESS hoặc FAILED |
-| response_code | VARCHAR(20) | | NULL | Mã kết quả của cổng |
-| created_at | DATETIME | | NOT NULL | Thời điểm tạo giao dịch |
-| paid_at | DATETIME | | NULL | Thời điểm cổng xác nhận thành công |
+| `resource_id` | `BIGSERIAL` | PK | `NOT NULL` | Mã tài nguyên |
+| `category_id` | `BIGINT` | FK → `categories` | `NOT NULL` | Danh mục phân loại |
+| `resource_type` | `VARCHAR(20)` | | `NOT NULL` | `DIGITAL`, `BOOK`, `EQUIPMENT`, `ROOM` |
+| `title` | `VARCHAR(255)` | | `NOT NULL` | Tên tài liệu, thiết bị hoặc tên phòng học |
+| `author_or_brand` | `VARCHAR(150)` | | `NULL` | Tác giả (sách/tài liệu số) hoặc Hãng sản xuất |
+| `code` | `VARCHAR(50)` | | `UNIQUE, NOT NULL` | Mã ISBN, Serial thiết bị hoặc Mã phòng |
+| `file_url` | `VARCHAR(500)` | | `NULL` | Đường dẫn tệp PDF/EPUB cho `DIGITAL` (`F-02`) |
+| `description` | `TEXT` | | `NULL` | Mô tả chi tiết / sức chứa phòng |
+| `location` | `VARCHAR(100)` | | `NULL` | Vị trí kệ sách, kho thiết bị hoặc tòa nhà |
+| `total_quantity` | `INT` | | `CHECK (total_quantity >= 0)` | Tổng số lượng sở hữu |
+| `available_quantity` | `INT` | | `CHECK (0 <= available_quantity AND available_quantity <= total_quantity)` | Số lượng khả dụng hiện tại (đã trừ giữ chỗ) |
+| `status` | `VARCHAR(20)` | | `DEFAULT 'ACTIVE'` | `ACTIVE` (Hoạt động), `MAINTENANCE` (Bảo trì), `INACTIVE` (Ẩn/Xóa mềm) |
+| `created_at` | `TIMESTAMP` | | `NOT NULL` | Thời điểm tạo |
+| `updated_at` | `TIMESTAMP` | | `NOT NULL` | Thời điểm cập nhật gần nhất |
 
-**Bảng system_settings**
-
-| Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
-| --- | --- | --- | --- | --- |
-| setting_key | VARCHAR(50) | PK | NOT NULL | Tên tham số |
-| setting_value | VARCHAR(100) | | NOT NULL | Giá trị |
-| description | VARCHAR(255) | | NULL | Mô tả |
-| updated_by | BIGINT | FK → users | NULL | Admin cập nhật |
-| updated_at | DATETIME | | NOT NULL | Thời điểm cập nhật |
-
-**Bảng notifications**
+**6. Bảng `loans`**
 
 | Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
 | --- | --- | --- | --- | --- |
-| notification_id | BIGINT | PK | AUTO_INCREMENT | Mã thông báo |
-| user_id | BIGINT | FK → users | NOT NULL | Người nhận |
-| loan_id | BIGINT | FK → loans | NULL | Phiếu mượn liên quan |
-| type | VARCHAR(30) | | NOT NULL | Ví dụ DUE_REMINDER |
-| message | VARCHAR(500) | | NOT NULL | Nội dung |
-| is_read | BOOLEAN | | NOT NULL, mặc định FALSE | Đã đọc hay chưa |
-| created_at | DATETIME | | NOT NULL | Thời điểm tạo |
-| sent_at | DATETIME | | NULL | Thời điểm gửi email |
+| `loan_id` | `BIGSERIAL` | PK | `NOT NULL` | Mã phiếu mượn / phiếu đặt phòng |
+| `qr_token` | `VARCHAR(64)` | | `UNIQUE, NOT NULL` | Chuỗi mã hóa dùng tạo mã QR quét tại quầy (`F-04`) |
+| `user_id` | `BIGINT` | FK → `users` | `NOT NULL` | Sinh viên / Giảng viên đặt mượn |
+| `resource_id` | `BIGINT` | FK → `resources` | `NOT NULL` | Tài sản hoặc phòng học được đặt |
+| `status` | `VARCHAR(20)` | | `NOT NULL` | `HOLDING`, `PENDING`, `BORROWING`, `RETURNED`, `REJECTED`, `CANCELLED`, `EXPIRED` |
+| `borrow_from` | `TIMESTAMP` | | `NOT NULL` | Thời điểm bắt đầu mượn / bắt đầu dùng phòng |
+| `due_date` | `TIMESTAMP` | | `CHECK (due_date > borrow_from)` | Thời hạn phải trả / kết thúc khung giờ phòng |
+| `requested_at` | `TIMESTAMP` | | `NOT NULL` | Thời điểm khởi tạo yêu cầu |
+| `hold_expires_at` | `TIMESTAMP` | | `NULL` | Thời điểm hết hạn giữ chỗ 10 phút (`HOLDING`) |
+| `approved_by` | `BIGINT` | FK → `users` | `NULL` | Thủ thư xác nhận giao tài sản / duyệt phiếu |
+| `approved_at` | `TIMESTAMP` | | `NULL` | Thời điểm bàn giao tài sản |
+| `received_by` | `BIGINT` | FK → `users` | `NULL` | Thủ thư quét QR nhận trả tài sản |
+| `returned_at` | `TIMESTAMP` | | `NULL` | Thời điểm trả thực tế |
+| `return_condition` | `VARCHAR(20)` | | `NULL` | `GOOD`, `DAMAGED` hoặc `LOST` |
+| `reject_reason` | `VARCHAR(255)` | | `NULL` | Lý do từ chối hoặc ghi chú hủy lịch |
 
-### 3.5. Khóa chính, khóa ngoại và ràng buộc dữ liệu
+**7. Bảng `penalties`**
 
-- Mọi bảng có khóa chính; riêng system_settings dùng `setting_key`.
-- Khóa ngoại: users.role_id, categories.parent_id, resources.category_id, loans.user_id, loans.resource_id, loans.approved_by, loans.received_by, penalties.loan_id, penalties.user_id, penalties.created_by, payments.penalty_id, system_settings.updated_by, notifications.user_id, notifications.loan_id. Tất cả dùng ON DELETE RESTRICT để không mất lịch sử mượn trả; vì vậy tài nguyên và tài khoản bị khóa hoặc đặt INACTIVE thay vì xóa cứng.
-- UNIQUE: users.email, users.user_code, roles.role_name, resources.code, payments.txn_ref.
-- CHECK: `0 <= available_quantity <= total_quantity`; `due_date > borrow_from`; `amount > 0`.
-- Chống mượn trùng (tương đương UNIQUE(student_id, section_id) ở đề mẫu): người dùng không được có hai phiếu HOLDING, PENDING hoặc BORROWING cho cùng một tài nguyên. MySQL không có UNIQUE theo điều kiện, nên Loan Service kiểm tra trong cùng transaction.
-- Chống vượt tồn kho: ngoài CHECK, câu UPDATE trừ tồn kho có điều kiện `available_quantity > 0` (Hình 2.2 trong [architecture.md](architecture.md)).
-- Chống trùng lịch phòng và thiết bị: trước khi tạo phiếu, Loan Service kiểm tra không có phiếu HOLDING, PENDING hoặc BORROWING nào giao khoảng `borrow_from` đến `due_date`.
-- Chỉ mục: FULLTEXT trên resources(title, author_or_brand) cho tra cứu dưới 2 giây; loans(user_id, status); loans(status, hold_expires_at) cho Scheduler; loans(resource_id, borrow_from, due_date) cho lịch trống; penalties(user_id, status) cho kiểm tra BR01.
+| Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
+| --- | --- | --- | --- | --- |
+| `penalty_id` | `BIGSERIAL` | PK | `NOT NULL` | Mã phiếu phạt |
+| `loan_id` | `BIGINT` | FK → `loans` | `NOT NULL` | Phiếu mượn phát sinh vi phạm |
+| `user_id` | `BIGINT` | FK → `users` | `NOT NULL` | Người dùng chịu phí phạt |
+| `penalty_type` | `VARCHAR(20)` | | `NOT NULL` | `OVERDUE` (Trễ hạn), `DAMAGED` (Hư hỏng), `LOST` (Làm mất) |
+| `overdue_days` | `INT` | | `CHECK (overdue_days >= 0)` | Số ngày trễ hạn |
+| `amount` | `NUMERIC(12,0)` | | `CHECK (amount > 0)` | Số tiền phạt tính bằng VNĐ |
+| `status` | `VARCHAR(20)` | | `DEFAULT 'UNPAID'` | `UNPAID` (Chưa đóng) hoặc `PAID` (Đã tất toán) |
+| `note` | `VARCHAR(255)` | | `NULL` | Mô tả chi tiết tình trạng hư hỏng |
+| `created_by` | `BIGINT` | FK → `users` | `NULL` | Thủ thư lập phiếu (`NULL` nếu tự động tính) |
+| `created_at` | `TIMESTAMP` | | `NOT NULL` | Thời điểm ghi nhận công nợ |
+| `paid_at` | `TIMESTAMP` | | `NULL` | Thời điểm thanh toán hoàn tất |
 
-### 3.6. Quan hệ giữa các bảng
+**8. Bảng `payments`**
 
-| Quan hệ | Bản số | Diễn giải |
-| --- | --- | --- |
-| roles – users | 1–N | Một vai trò có nhiều người dùng; mỗi người một vai trò. |
-| categories – categories | 1–N | Danh mục cha chứa nhiều danh mục con. |
-| categories – resources | 1–N | Một danh mục có nhiều tài nguyên. |
-| users – loans | 1–N | Một người mượn nhiều lần; thủ thư xuất hiện ở approved_by và received_by. |
-| resources – loans | 1–N | Một tài nguyên được mượn nhiều lần theo thời gian. Quan hệ N–N giữa users và resources được triển khai qua bảng loans, giống Enrollments ở đề mẫu. |
-| loans – penalties | 1–N | Một phiếu mượn có thể có nhiều phiếu phạt. |
-| users – penalties | 1–N | Một người có nhiều phiếu phạt. |
-| penalties – payments | 1–N | Một phiếu phạt có thể thanh toán nhiều lần thử; chỉ một lần SUCCESS. |
-| users – notifications | 1–N | Một người nhận nhiều thông báo. |
+| Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
+| --- | --- | --- | --- | --- |
+| `payment_id` | `BIGSERIAL` | PK | `NOT NULL` | Mã giao dịch thanh toán |
+| `penalty_id` | `BIGINT` | FK → `penalties` | `NOT NULL` | Phiếu phạt được thanh toán |
+| `gateway` | `VARCHAR(20)` | | `NOT NULL` | `VNPAY` hoặc `MOMO` |
+| `txn_ref` | `VARCHAR(64)` | | `UNIQUE, NOT NULL` | Mã tham chiếu duy nhất chống xử lý trùng IPN |
+| `gateway_txn_no` | `VARCHAR(64)` | | `NULL` | Mã giao dịch đối soát phía cổng thanh toán |
+| `amount` | `NUMERIC(12,0)` | | `CHECK (amount > 0)` | Số tiền giao dịch (VNĐ) |
+| `status` | `VARCHAR(20)` | | `DEFAULT 'PENDING'` | `PENDING`, `SUCCESS`, `FAILED` |
+| `response_code` | `VARCHAR(20)` | | `NULL` | Mã phản hồi từ VNPay / MoMo |
+| `created_at` | `TIMESTAMP` | | `NOT NULL` | Thời điểm khởi tạo lệnh thanh toán |
+| `paid_at` | `TIMESTAMP` | | `NULL` | Thời điểm nhận IPN thành công |
 
-### 3.7. Đối chiếu ERD với Class Diagram Buổi 5
+**9. Bảng `notifications`**
 
-Sơ đồ lớp Buổi 5 chưa có trong tài liệu nhóm gửi kèm, nên bảng dưới đối chiếu với các lớp suy ra từ Lab 2 và Lab 3. Cần sửa lại nếu tên lớp ở Buổi 5 khác.
+| Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
+| --- | --- | --- | --- | --- |
+| `notification_id` | `BIGSERIAL` | PK | `NOT NULL` | Mã thông báo |
+| `user_id` | `BIGINT` | FK → `users` | `NOT NULL` | Người nhận thông báo |
+| `loan_id` | `BIGINT` | FK → `loans` | `NULL` | Phiếu mượn liên quan |
+| `type` | `VARCHAR(30)` | | `NOT NULL` | `DUE_REMINDER_3D`, `DUE_REMINDER_1D`, `LOAN_CONFIRMED` |
+| `message` | `VARCHAR(500)` | | `NOT NULL` | Nội dung thông báo hiển thị |
+| `is_read` | `BOOLEAN` | | `DEFAULT FALSE` | Trạng thái đã xem trên web |
+| `created_at` | `TIMESTAMP` | | `NOT NULL` | Thời điểm sinh thông báo |
+| `sent_at` | `TIMESTAMP` | | `NULL` | Thời điểm gửi email thành công |
 
-| Lớp (Class Diagram) | Bảng (ERD) | Ghi chú ánh xạ |
-| --- | --- | --- |
-| User, và các lớp con Student, Lecturer, Librarian, Admin | users, roles | Kế thừa chuyển thành một bảng users kèm role_id. |
-| Resource, và các lớp con Book, Equipment, Room | resources | Một bảng, phân biệt bằng resource_type (Single Table Inheritance). |
-| Category | categories | Quan hệ cha – con giữ bằng parent_id. |
-| LoanTicket (phiếu mượn) | loans | Thuộc tính status ánh xạ vòng đời phiếu. |
-| Penalty | penalties | Phương thức tính tiền phạt nằm ở Penalty Service, bảng chỉ lưu kết quả. |
-| Payment | payments | Gắn với cổng thanh toán qua gateway và txn_ref. |
-| SystemConfig | system_settings | Mỗi quy định là một dòng khóa – giá trị. |
-| Notification | notifications | |
+**10. Bảng `system_settings`**
 
-### 3.8. Giải thích các quyết định thiết kế
+| Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
+| --- | --- | --- | --- | --- |
+| `setting_key` | `VARCHAR(50)` | PK | `NOT NULL` | Khóa cấu hình (`MAX_ACTIVE_LOANS`, `FINE_PER_DAY`, `HOLD_MINUTES`, `ROOM_CANCEL_HOURS`...) |
+| `setting_value` | `VARCHAR(100)` | | `NOT NULL` | Giá trị cấu hình hiện hành |
+| `description` | `VARCHAR(255)` | | `NULL` | Giải thích ý nghĩa tham số |
+| `updated_by` | `BIGINT` | FK → `users` | `NULL` | Quản trị viên chỉnh sửa lần cuối |
+| `updated_at` | `TIMESTAMP` | | `NOT NULL` | Thời điểm cập nhật |
 
-- **Một bảng resources cho sách, thiết bị và phòng:** ba loại dùng chung luồng tra cứu, mượn, trả; tách bảng sẽ nhân đôi API và báo cáo. Khác biệt nhỏ nằm ở resource_type và `location`.
-- **Trừ tồn kho khi giữ chỗ, không trừ lần hai khi duyệt:** Lab 2 (UC06) trừ khi đặt, Lab 3 (UC2) nói trừ khi duyệt. Nhóm thống nhất trừ một lần lúc HOLDING; duyệt chỉ đổi trạng thái, từ chối hoặc hết hạn thì cộng lại. Làm vậy không bao giờ trừ hai lần cho một phiếu.
-- **Xóa mềm cho resources và users:** US10 cho phép xóa, nhưng phiếu mượn và phiếu phạt cũ vẫn phải tham chiếu được.
-- **Tách payments khỏi penalties:** giữ được lịch sử thanh toán thất bại và chống xử lý lặp IPN nhờ txn_ref UNIQUE.
-- **Tham số vào system_settings:** Admin đổi mức phạt, số ngày mượn mà không cần sửa mã (BR04).
-- **Tiền phạt dùng DECIMAL(12,0):** VND không có phần lẻ, tránh sai số của kiểu số thực.
+**11. Bảng `audit_logs`**
+
+| Thuộc tính | Kiểu dữ liệu | PK/FK | Ràng buộc | Ý nghĩa |
+| --- | --- | --- | --- | --- |
+| `log_id` | `BIGSERIAL` | PK | `NOT NULL` | Mã nhật ký kiểm toán |
+| `user_id` | `BIGINT` | FK → `users` | `NULL` | Người thực hiện thao tác |
+| `action` | `VARCHAR(50)` | | `NOT NULL` | Hành động (`LOGIN_OTP`, `HOLD_ASSET`, `RETURN_ASSET`, `CANCEL_ROOM`, `UPDATE_SETTING`...) |
+| `entity_type` | `VARCHAR(50)` | | `NOT NULL` | Bảng bị tác động (`loans`, `resources`, `penalties`...) |
+| `entity_id` | `BIGINT` | | `NULL` | Khóa chính của bản ghi bị tác động |
+| `details` | `JSONB` | | `NULL` | Chi tiết thay đổi (giá trị cũ / mới) |
+| `ip_address` | `VARCHAR(45)` | | `NULL` | Địa chỉ IP thực hiện |
+| `created_at` | `TIMESTAMP` | | `NOT NULL` | Thời điểm ghi nhận nhật ký |
+
+---
+
+### 3.5. Ràng buộc Toàn vẹn và Chiến lược Đánh Chỉ mục (Indexing)
+
+1. **Toàn vẹn tham chiếu (`ON DELETE RESTRICT`):** Toàn bộ khóa ngoại đều thiết lập `ON DELETE RESTRICT` nhằm cấm xóa vật lý tài sản hoặc người dùng khi đã phát sinh lịch sử mượn trả, công nợ hoặc nhật ký kiểm toán (đáp ứng tiêu chí Toàn vẹn dữ liệu của đề tài).
+2. **Chống mượn trùng bằng Partial Unique Index (Đặc tả PostgreSQL 16):**
+   ```sql
+   CREATE UNIQUE INDEX uq_active_user_resource_loan
+   ON loans (user_id, resource_id)
+   WHERE status IN ('HOLDING', 'PENDING', 'BORROWING');
+   ```
+   Đảm bảo ngay từ tầng CSDL một người dùng không thể giữ hai phiếu đang hoạt động cho cùng một cuốn sách hoặc thiết bị.
+3. **Chỉ mục tối ưu tốc độ tra cứu $< 2\text{ giây}$:**
+   - **Full-Text Search Index (`GIN`):** Đánh chỉ mục `GIN (to_tsvector('simple', title || ' ' || coalesce(author_or_brand, '') || ' ' || code))` trên bảng `resources` giúp tìm kiếm từ khóa đa tiêu chí dưới 2 giây.
+   - **Index quét giữ chỗ hết hạn:** `idx_loans_hold_expiry ON loans (status, hold_expires_at)` phục vụ Scheduler chạy mỗi phút.
+   - **Index kiểm tra lịch trống phòng học & thiết bị:** `idx_loans_schedule ON loans (resource_id, borrow_from, due_date) WHERE status IN ('HOLDING', 'PENDING', 'BORROWING')`.
+   - **Index kiểm tra nợ phạt tức thời:** `idx_penalties_unpaid ON penalties (user_id, status)` phục vụ kiểm tra `BR01`.
