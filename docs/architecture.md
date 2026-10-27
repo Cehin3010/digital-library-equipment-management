@@ -1,248 +1,239 @@
-## Kiến trúc (C1,C2 và C5 - LAB 7)
+# Tài liệu Thiết kế Kiến trúc Hệ thống
 
 ## Chương 1. Tổng quan thiết kế
 
 ### 1.1. Giới thiệu bài toán
 
-Quy trình tra cứu và mượn trả hiện nay làm thủ công: sinh viên đến thư viện mới biết sách hoặc thiết bị đã hết, còn thủ thư ghi sổ nên dễ sai sót, trùng lịch mượn, thất lạc tài sản và khó thu tiền phạt. Hệ thống số hóa toàn bộ quy trình này trên nền web.
+Trong môi trường đại học, quy trình tra cứu và mượn trả học liệu, thiết bị hiện vẫn còn phân mảnh và thủ công: sinh viên, giảng viên mất thời gian đến tận quầy mới biết sách hoặc thiết bị đã hết; cán bộ thư viện ghi chép sổ sách dễ dẫn đến sai sót, trùng lịch đặt phòng, thất lạc tài sản và khó theo dõi công nợ phí phạt. **Hệ thống Thư viện Số & Cho mượn Tài sản Đại học** số hóa toàn diện quy trình trên nền tảng Web, quản lý tập trung 3 nhóm tài nguyên: **Tài liệu số (PDF/EPUB)**, **Tài sản vật lý (Sách in, Thiết bị)** và **Phòng học / Không gian thảo luận**.
 
 ### 1.2. Mục tiêu và phạm vi hệ thống
 
-- Tra cứu tài nguyên (sách, thiết bị, phòng học) và xem tình trạng khả dụng theo thời gian thực.
-- Đặt mượn trực tuyến, có cơ chế giữ chỗ để tránh hai người cùng mượn một tài nguyên cuối cùng (race condition).
-- Thủ thư duyệt phiếu, ghi nhận trả, lập phiếu phạt; hệ thống tự cộng, trừ tồn kho và tính công nợ.
-- Thanh toán tiền phạt trực tuyến qua VNPay hoặc MoMo.
-- Báo cáo thống kê lượt mượn trả và vi phạm theo tháng.
-- Ngoài phạm vi 10 tuần: kiosk quét thẻ NFC/Barcode, thông báo Zalo ZNS/SMS, hệ thống gợi ý tài liệu, Dark Mode (đã nêu ở hướng phát triển của Lab 3).
+Hệ thống hiện thực hóa đầy đủ 6 phân hệ chức năng (`F-01` đến `F-12`) theo đặc tả đề tài và mở rộng thêm cổng thanh toán trực tuyến (`F-06b`):
 
-### 1.3. Các nhóm người dùng và chức năng chính
+- **Kho tài liệu số (`F-01`, `F-02`):** Quản lý danh mục học liệu điện tử, tra cứu đa tiêu chí dưới 2 giây và tích hợp trình đọc PDF trực tuyến (*Online Reader*) ngay trên trình duyệt.
+- **Mượn trả tài sản vật lý & Đặt phòng học (`F-03`, `F-04`, `F-07`, `F-08`):** Xem lịch trống theo khung giờ thực tế, đặt mượn trực tuyến có cơ chế **giữ chỗ tạm thời 10 phút** chống tranh chấp (*race condition*), sinh mã QR phiếu mượn để xác nhận giao/nhận tại quầy và cho phép hủy lịch trước hạn.
+- **Nhắc hạn, Tính phạt tự động & Thanh toán điện tử (`F-05`, `F-06`, `F-06b`):** Tự động gửi email nhắc hạn trả (trước 3 ngày và 1 ngày), tự động tính phí phạt trễ hạn, khóa quyền mượn khi có nợ phạt và tích hợp thanh toán qua **VNPay / MoMo Sandbox** để tự động gỡ khóa.
+- **Thống kê & Kiểm toán bảo mật (`F-09`, `F-10`, `F-11`, `F-12`):** Xác thực không mật khẩu bằng mã OTP qua email trường, phân quyền chặt chẽ 4 vai trò (RBAC), lưu vết toàn bộ thao tác nhạy cảm vào Nhật ký kiểm toán (*Audit Log*) và xuất báo cáo định kỳ ra Excel/PDF.
+- **Ngoài phạm vi 10 tuần (Hướng phát triển):** Kiosk phần cứng quét thẻ từ NFC tự phục vụ không cần thủ thư, thông báo qua Zalo ZNS/SMS Gateway và hệ thống gợi ý học liệu bằng AI.
 
-| Nhóm người dùng | Use case chính (Lab 2) | Giao diện sử dụng |
+### 1.3. Các nhóm người dùng và phân hệ chức năng
+
+| Tác tử (Vai trò) | Mã chức năng phụ trách / sử dụng | Giao diện sử dụng |
 | --- | --- | --- |
-| Sinh viên / Giảng viên | UC04 Tra cứu, UC05 Xem lịch trống, UC06 Đặt mượn, UC09 Xem lịch sử và công nợ, UC10 Thanh toán phạt | Web responsive (điện thoại và máy tính) |
-| Cán bộ thư viện (Thủ thư) | UC02 Quản lý danh mục, UC07 Duyệt phiếu, UC08 Ghi nhận trả và đánh giá hư hỏng, UC11 Lập báo cáo | Web, giao diện quản lý |
-| Quản trị viên (Admin) | UC03 Quản lý tài khoản và phân quyền, cấu hình tham số hệ thống | Web, giao diện quản trị |
-| Hệ thống thanh toán bên ngoài (VNPay, MoMo) | Nhận yêu cầu thanh toán, trả kết quả về hệ thống | API và Webhook |
+| **Sinh viên (Student)** | `F-01` Tra cứu, `F-02` Đọc tài liệu số, `F-03` Đặt mượn tài sản, `F-05` Nhận nhắc hạn, `F-06` Xem công nợ, `F-06b` Thanh toán phạt, `F-07` Đặt phòng học, `F-08` Hủy lịch đặt | Web responsive (điện thoại và máy tính) |
+| **Giảng viên (Lecturer)** | Toàn bộ quyền của Sinh viên; bổ sung quyền đề xuất tài liệu mới (`F-01`) và xem thống kê sử dụng học liệu lớp phụ trách (`F-09`) | Web responsive (điện thoại và máy tính) |
+| **Cán bộ thư viện (Librarian)** | `F-01` Quản lý kho tài liệu số & tài sản, `F-04` Quét QR / duyệt xuất kho & ghi nhận trả, `F-06` Ghi nhận hư hỏng / lập phiếu phạt, `F-09` & `F-10` Xem và xuất báo cáo | Web, giao diện nghiệp vụ quầy |
+| **Quản trị viên (Admin)** | `F-11` Quản lý tài khoản & phân quyền 4 vai trò, cấu hình tham số hệ thống, `F-09` Dashboard tổng quan, `F-12` Giám sát Audit Log | Web, giao diện quản trị hệ thống |
+| **Cổng thanh toán (VNPay, MoMo)** | `F-06b` Tiếp nhận yêu cầu thanh toán phí phạt và gọi ngược IPN Webhook xác nhận kết quả | REST API & IPN Webhook |
 
-UC01 Đăng nhập / Đăng xuất dùng chung cho mọi nhóm.
+*(Chức năng `F-11: Đăng nhập OTP qua email trường & Đăng xuất` áp dụng chung cho cả 4 vai trò nội bộ).*
 
 ### 1.4. Các giả định và quy tắc nghiệp vụ
 
-| Mã | Quy tắc nghiệp vụ | Nguồn |
+| Mã | Quy tắc nghiệp vụ | Phân hệ áp dụng |
 | --- | --- | --- |
-| BR01 | Người dùng còn phiếu phạt chưa thanh toán thì không được đặt mượn mới. | Lab 2, UC06 |
-| BR02 | Chỉ giữ chỗ và duyệt khi số lượng khả dụng lớn hơn 0. | Lab 2 |
-| BR03 | Khi đặt mượn, hệ thống tạm giữ tài nguyên 10 phút để người dùng xác nhận; quá hạn tự nhả lại tồn kho. | Lab 3, Phần 5 |
-| BR04 | Số lượng mượn tối đa, số ngày mượn và mức phạt mỗi ngày do Admin cấu hình, không viết cứng trong mã. | US16 |
-| BR05 | Trả trễ: phạt = số ngày trễ × mức phạt mỗi ngày. Hư hỏng hoặc mất: thủ thư chọn mức độ và nhập số tiền khi lập phiếu phạt. | US13, UC3 |
-| BR06 | Phiếu phạt thanh toán thành công thì tự động gỡ giới hạn mượn. | US08 |
-| BR07 | Chỉ thủ thư được thêm, sửa, xóa tài nguyên, duyệt phiếu và ghi nhận trả; chỉ Admin được phân quyền tài khoản. | Lab 3, Phần 4 |
-| BR08 | Chỉ tài khoản email của trường được đăng nhập. | US01 |
+| **BR01** | Người dùng đang có phiếu phạt chưa thanh toán (`UNPAID`) thì bị khóa quyền đặt mượn mới và đặt phòng. | `F-03`, `F-06`, `F-07` |
+| **BR02** | Chỉ cho phép tạo giữ chỗ và duyệt mượn khi số lượng khả dụng (`available_quantity`) lớn hơn 0 và không trùng khung giờ đặt trước. | `F-03`, `F-07` |
+| **BR03** | Khi nhấn Đặt mượn, hệ thống tạm trừ tồn kho và giữ chỗ trong **10 phút** (`HOLDING`) để người dùng xác nhận; quá 10 phút tự động chuyển `EXPIRED` và hoàn lại tồn kho. | `F-03`, `F-07` |
+| **BR04** | Hạn mức mượn tối đa, thời gian mượn, thời gian hủy phòng trước hạn (mặc định 2 giờ) và đơn giá phạt mỗi ngày do Admin cấu hình động trong `system_settings`. | `F-06`, `F-08`, `F-11` |
+| **BR05** | Trả trễ hạn: `Tiền phạt = Số ngày trễ × Đơn giá phạt/ngày`. Tài sản hư hỏng hoặc mất: Thủ thư chọn tình trạng khi nhận trả và nhập mức bồi thường thực tế. | `F-04`, `F-06` |
+| **BR06** | Ngay khi cổng thanh toán gọi IPN xác nhận giao dịch thành công (`SUCCESS`), phiếu phạt chuyển sang `PAID` và hệ thống tự động mở lại quyền mượn. | `F-06b` |
+| **BR07** | Phân quyền RBAC: Chỉ Thủ thư được CRUD tài nguyên và duyệt nhận/trả; chỉ Admin được cấp quyền tài khoản, sửa tham số hệ thống và xem Audit Log. | `F-11`, `F-12` |
+| **BR08** | Chỉ email thuộc tên miền nhà trường đang ở trạng thái `ACTIVE` mới được nhận mã OTP đăng nhập; mã OTP băm một chiều, hiệu lực 5 phút, tối đa 5 lần nhập sai. | `F-11` |
 
-**Giả định của nhóm:**
-
-- Sơ đồ lớp của Lab 5 chưa có trong tài liệu gửi kèm; Chương 3.7 dùng bộ lớp suy ra từ Lab 2 và Lab 3, nhóm đối chiếu lại khi có bản chính thức.
-- Cơ sở dữ liệu là MySQL 8 (kiểu dữ liệu ở Chương 3 theo cú pháp MySQL); cổng thanh toán chạy ở môi trường sandbox.
-- Nhắc hạn trả (US09) gửi qua email trong phạm vi 10 tuần.
+---
 
 ## Chương 2. Thiết kế kiến trúc
 
 ### 2.1. Lựa chọn mô hình kiến trúc
 
-Nhóm chọn kiến trúc 3 lớp (3-Tier): giao diện React, nghiệp vụ Node.js REST API và cơ sở dữ liệu quan hệ. Hai bên giao tiếp qua HTTPS với dữ liệu JSON, xác thực bằng JWT.
+Hệ thống áp dụng **Kiến trúc phân tầng 3 lớp (3-Tier Architecture)** đóng gói đồng bộ qua Docker Compose:
+- **Presentation Tier:** Single Page Application viết bằng **React (Vite) + Tailwind CSS**.
+- **Business Logic Tier:** RESTful API viết bằng **Laravel (PHP 8.3)**, xác thực phi trạng thái qua **Laravel Sanctum** (Bearer Token), xử lý tác vụ nền bằng **Laravel Scheduler & Queue**.
+- **Data Tier:** Hệ quản trị cơ sở dữ liệu quan hệ **PostgreSQL 16**.
 
 ### 2.2. Sơ đồ kiến trúc tổng thể
 
 ```mermaid
 flowchart TB
-  subgraph P["Lớp giao diện - Presentation Tier (React + Tailwind CSS, responsive)"]
+  subgraph P["Lớp giao diện - Presentation Tier (React + Tailwind CSS, Responsive)"]
     SV["Giao diện Sinh viên / Giảng viên"]
-    TT["Giao diện Thủ thư"]
+    TT["Giao diện Cán bộ Thư viện"]
     AD["Giao diện Quản trị viên"]
   end
-  subgraph B["Lớp nghiệp vụ - Business Tier (Node.js REST API)"]
-    AUTH["Auth Service: đăng nhập, JWT, phân quyền"]
-    RES["Resource Service: danh mục, tồn kho"]
-    LOAN["Loan Service: đặt mượn, giữ chỗ, duyệt, ghi nhận trả"]
-    PEN["Penalty Service: lập phiếu phạt, công nợ"]
-    PAY["Payment Service: tích hợp cổng thanh toán"]
-    REP["Report Service: thống kê"]
-    SCH["Scheduler: nhả giữ chỗ hết hạn, nhắc hạn trả"]
+
+  subgraph B["Lớp nghiệp vụ - Business Tier (Laravel PHP 8.3 REST API)"]
+    AUTH["Auth & RBAC Service (F-11): OTP, Sanctum Token, Phân quyền"]
+    AUDIT["Audit Middleware (F-12): Lưu vết thao tác hệ thống"]
+    RES["Repository Service (F-01, F-02): Tài liệu số, Thiết bị, Phòng học"]
+    LOAN["Circulation & Room Service (F-03, F-04, F-07, F-08): Giữ chỗ, QR nhận/trả"]
+    PEN["Fine Engine (F-06): Tự động tính phí phạt & khóa quyền mượn"]
+    PAY["Payment Service (F-06b): Tích hợp VNPay / MoMo & xử lý IPN"]
+    REP["Analytics & Report Service (F-09, F-10): Dashboard, Xuất Excel/PDF"]
+    SCH["Scheduler & Queue Worker (F-03, F-05): Nhả giữ chỗ 10p, Email nhắc hạn"]
   end
+
   subgraph D["Lớp truy cập dữ liệu - Data Access Tier"]
-    REPO["Repository / ORM, quản lý transaction"]
+    ORM["Eloquent ORM & DB Transaction Manager"]
   end
-  DB[("Cơ sở dữ liệu MySQL")]
-  GW["Cổng thanh toán VNPay / MoMo"]
-  MAIL["Dịch vụ Email"]
-  P -->|"HTTPS, JSON, JWT"| B
-  B --> D
-  D --> DB
-  PAY <-->|"Yêu cầu thanh toán, IPN callback"| GW
-  SCH -->|"Email nhắc hạn"| MAIL
+
+  DB[("PostgreSQL 16")]
+  GW["Cổng VNPay / MoMo Sandbox"]
+  MAIL["Mailpit (Dev) / Gmail SMTP (Prod)"]
+
+  P -->|"HTTPS, JSON, Bearer Token"| B
+  B --> ORM
+  ORM --> DB
+  PAY <-->|"Tạo URL thanh toán & Nhận IPN Webhook"| GW
+  SCH -->|"Gửi OTP & Nhắc hạn qua Queue"| MAIL
+  AUTH -->|"Gửi mã OTP"| MAIL
 ```
 
-Hình 2.1. Kiến trúc 3 lớp của hệ thống.
+*Hình 2.1. Sơ đồ kiến trúc 3 lớp của Hệ thống Thư viện Số & Cho mượn Tài sản Đại học.*
 
 ### 2.3. Mô tả trách nhiệm từng lớp
 
-| Lớp | Thành phần | Trách nhiệm |
+| Lớp | Thành phần kỹ thuật | Trách nhiệm chính |
 | --- | --- | --- |
-| Giao diện | React, Tailwind CSS | Hiển thị và nhận thao tác của sinh viên, giảng viên, thủ thư, admin; kiểm tra dữ liệu nhập cơ bản; gọi API; hiển thị thông báo thành công hoặc lỗi; tương thích điện thoại. |
-| Nghiệp vụ | Auth, Resource, Loan, Penalty, Payment, Report, Scheduler | Áp dụng quy tắc BR01 đến BR08: kiểm tra nợ phạt và tồn kho, giữ chỗ 10 phút, duyệt hoặc từ chối, tính tiền phạt, xác thực kết quả cổng thanh toán, phân quyền theo vai trò trên từng API. |
-| Truy cập dữ liệu | Repository, ORM | Đọc, ghi, cập nhật dữ liệu; mở transaction cho các thao tác đổi tồn kho; không chứa quy tắc nghiệp vụ. |
-| Cơ sở dữ liệu | MySQL | Lưu người dùng, tài nguyên, phiếu mượn, phiếu phạt, giao dịch thanh toán, tham số hệ thống; đảm bảo khóa ngoại, ràng buộc UNIQUE và CHECK; sao lưu tự động lúc 02:00 hằng ngày. |
+| **Giao diện (Presentation)** | React, Tailwind CSS, React Router, Axios | Hiển thị giao diện theo 4 vai trò; gắn nhãn màu trạng thái tài sản trực quan (Xanh: Còn trống, Đỏ: Đang mượn, Xám: Bảo trì); nhúng trình đọc PDF (`F-02`) và hiển thị mã QR phiếu mượn (`F-04`). |
+| **Nghiệp vụ (Business)** | Laravel Controllers, Services, FormRequests, Sanctum, Queue, Scheduler | Thực thi quy tắc `BR01`–`BR08`: xác thực OTP, kiểm tra công nợ & xung đột lịch phòng, khóa giữ chỗ 10 phút, tính phí phạt trễ hạn, đối soát chữ ký HMAC từ VNPay/MoMo và ghi `audit_logs`. |
+| **Truy cập dữ liệu (Data Access)** | Laravel Eloquent ORM, Database Transactions | Thực thi truy vấn an toàn qua Prepared Statements, quản lý Transaction nguyên tử (`DB::transaction`) khi thay đổi tồn kho, tách biệt hoàn toàn câu lệnh SQL khỏi tầng giao diện. |
+| **Cơ sở dữ liệu (Database)** | PostgreSQL 16 | Lưu trữ bền vững 11 bảng dữ liệu; đảm bảo toàn vẹn khóa ngoại (`ON DELETE RESTRICT`), ràng buộc `CHECK`, chỉ mục tìm kiếm toàn văn `GIN` và tự động sao lưu lúc `02:00` sáng hằng ngày. |
 
-### 2.4. Luồng xử lý nghiệp vụ đặt mượn tài nguyên (UC06)
+### 2.4. Luồng xử lý đặt mượn giữ chỗ 10 phút và xác nhận QR (`F-03`, `F-04`, `F-07`)
 
-Bước then chốt là trừ tồn kho bằng một câu lệnh UPDATE có điều kiện `available_quantity > 0`. Câu lệnh này chạy nguyên tử, nên hai sinh viên đặt cùng lúc tài nguyên cuối cùng thì chỉ một người thành công.
+Điểm cốt lõi để triệt tiêu *race condition* khi nhiều người cùng đặt thiết bị hoặc phòng học cuối cùng là thực thi câu lệnh cập nhật nguyên tử có điều kiện `UPDATE resources SET available_quantity = available_quantity - 1 WHERE resource_id = :id AND available_quantity > 0` ngay bên trong Transaction của PostgreSQL.
 
 ```mermaid
 sequenceDiagram
-  actor SV as Sinh viên
+  actor SV as Sinh viên / Giảng viên
   participant UI as React UI
-  participant API as Loan Service
-  participant DB as MySQL
-  SV->>UI: Nhấn Đặt mượn
-  UI->>API: POST /loans (resourceId, dueDate)
-  API->>DB: Đếm phiếu phạt UNPAID của người dùng
-  alt Còn nợ phạt (BR01)
-    API-->>UI: 403 Bạn cần thanh toán nợ phạt trước khi mượn tài nguyên mới
-  else Không nợ phạt
-    API->>DB: BEGIN, trừ available_quantity 1 nếu còn lớn hơn 0
-    alt Không có dòng nào được cập nhật
-      API-->>UI: 409 Tài nguyên đã hết
-    else Trừ thành công
-      API->>DB: INSERT loans (HOLDING, hold_expires_at = now + 10 phút), COMMIT
-      API-->>UI: 201 Mã phiếu và đồng hồ đếm ngược 10 phút
-      SV->>UI: Xác nhận đặt mượn
-      UI->>API: POST /loans/{id}/confirm
-      API->>DB: Đổi trạng thái phiếu sang PENDING
-      API-->>UI: Đặt mượn thành công, chờ thủ thư duyệt
+  participant API as Circulation Service (Laravel)
+  participant DB as PostgreSQL 16
+
+  SV->>UI: Chọn tài sản / khung giờ phòng & nhấn Đặt mượn
+  UI->>API: POST /api/loans (resource_id, borrow_from, due_date)
+  API->>DB: Kiểm tra phiếu phạt UNPAID (BR01) & xung đột khung giờ
+  alt Đang nợ phạt hoặc trùng khung giờ
+    API-->>UI: 403 / 409 Từ chối kèm thông báo nguyên nhân rõ ràng
+  else Đủ điều kiện đặt mượn
+    API->>DB: BEGIN; UPDATE resources trừ available_quantity = available_quantity - 1 WHERE available_quantity > 0
+    alt Số dòng cập nhật = 0 (Vừa hết tài sản)
+      API->>DB: ROLLBACK
+      API-->>UI: 409 Tài nguyên vừa hết số lượng khả dụng
+    else Trừ tồn kho tạm thời thành công
+      API->>DB: INSERT loans (status = HOLDING, hold_expires_at = NOW() + 10 phút) + Ghi audit_logs; COMMIT
+      API-->>UI: 201 Trả về thông tin phiếu & bộ đếm ngược 10 phút (W3)
+      SV->>UI: Nhấn Xác nhận đặt mượn trong thời gian giữ chỗ
+      UI->>API: POST /api/loans/{id}/confirm
+      API->>DB: UPDATE loans SET status = PENDING + Sinh mã QR nhận tài sản
+      API-->>UI: 200 Xác nhận thành công, hiển thị mã QR nhận tại quầy
     end
   end
 ```
 
-Hình 2.2. Luồng đặt mượn có giữ chỗ.
+*Hình 2.2. Luồng đặt mượn có khóa giữ chỗ 10 phút chống tranh chấp đồng thời.*
 
-Các nhánh còn lại của phiếu mượn:
+**Vòng đời tiếp theo của phiếu mượn:**
+- **Quá 10 phút không xác nhận:** Laravel Scheduler quét mỗi phút, chuyển các phiếu `HOLDING` quá hạn sang `EXPIRED` và cộng trả `1` vào `available_quantity`.
+- **Hủy lịch đặt (`F-08`):** Người dùng hủy phiếu `PENDING` (trước giờ nhận tối thiểu 2 giờ đối với phòng học) hoặc Thủ thư từ chối $\rightarrow$ chuyển sang `CANCELLED` / `REJECTED` và hoàn lại tồn kho.
+- **Nhận & Trả tại quầy (`F-04`):** Thủ thư quét mã QR (hoặc nhập mã phiếu trên `W5`) để chuyển sang `BORROWING` (khi giao đồ) và `RETURNED` (khi nhận lại đồ, cộng lại `available_quantity`). Nếu quá `due_date` hoặc tài sản hư hỏng, hệ thống tự động gọi `Fine Engine` sinh phiếu phạt (`F-06`).
 
-- Hết 10 phút mà sinh viên chưa xác nhận: Scheduler đổi phiếu sang EXPIRED và cộng lại 1 vào `available_quantity`.
-- Sinh viên hủy phiếu PENDING (US05) hoặc thủ thư từ chối (UC07): phiếu sang CANCELLED hoặc REJECTED và cộng lại tồn kho.
-- Thủ thư duyệt: phiếu sang BORROWING, tồn kho giữ nguyên vì đã trừ lúc giữ chỗ.
-- Thủ thư ghi nhận trả (UC08): phiếu sang RETURNED và cộng lại 1; nếu trả trễ hoặc hư hỏng thì rẽ nhánh lập phiếu phạt.
+### 2.5. Luồng thanh toán phí phạt trực tuyến qua VNPay / MoMo (`F-06b`)
 
-### 2.5. Luồng xử lý học phí và thanh toán, áp dụng cho tiền phạt (UC10)
-
-Hệ thống không có học phí; khoản phải thu là tiền phạt vi phạm. Kết quả thanh toán chỉ được tin khi cổng gọi về IPN và chữ ký hợp lệ, không dựa vào việc trình duyệt quay lại trang kết quả.
+Trạng thái công nợ chỉ được cập nhật khi nhận được **IPN Webhook** hợp lệ trực tiếp từ máy chủ cổng thanh toán kèm chữ ký điện tử (HMAC-SHA512 / SHA256) chính xác, tuyệt đối không tin tưởng tham số truyền trên URL trình duyệt của người dùng.
 
 ```mermaid
 sequenceDiagram
-  actor SV as Sinh viên
-  participant UI as React UI
-  participant API as Payment Service
-  participant DB as MySQL
-  participant GW as VNPay / MoMo
-  SV->>UI: Chọn phiếu phạt và nhấn Thanh toán
-  UI->>API: POST /penalties/{id}/pay (gateway)
-  API->>DB: INSERT payments (PENDING, txn_ref)
-  API-->>UI: Đường dẫn thanh toán của cổng
-  UI->>GW: Chuyển hướng sinh viên sang cổng
-  SV->>GW: Xác nhận và trả tiền
-  GW->>API: IPN callback (txn_ref, mã kết quả, chữ ký)
-  API->>API: Kiểm tra chữ ký và số tiền
-  alt Thành công
-    API->>DB: payments = SUCCESS, penalties = PAID
-  else Thất bại hoặc hủy
-    API->>DB: payments = FAILED
+  actor SV as Sinh viên / Giảng viên
+  participant UI as React UI (W4)
+  participant API as Payment Service (Laravel)
+  participant DB as PostgreSQL 16
+  participant GW as VNPay / MoMo Sandbox
+
+  SV->>UI: Chọn phiếu phạt UNPAID & nhấn Thanh toán
+  UI->>API: POST /api/penalties/{id}/pay (gateway)
+  API->>DB: INSERT payments (status = PENDING, txn_ref duy nhất)
+  API-->>UI: 201 Trả về payment_url có chữ ký bảo mật
+  UI->>GW: Chuyển hướng sang cổng thanh toán
+  SV->>GW: Thực hiện thanh toán trên Sandbox
+  GW->>API: POST /api/payments/ipn (txn_ref, amount, response_code, secure_hash)
+  API->>API: Đối chiếu chữ ký HMAC, số tiền & kiểm tra chống trùng txn_ref
+  alt Giao dịch hợp lệ & thành công
+    API->>DB: BEGIN; payments = SUCCESS, penalties = PAID + Ghi audit_logs; COMMIT
+  else Giao dịch thất bại hoặc hủy
+    API->>DB: UPDATE payments SET status = FAILED
   end
-  GW-->>UI: Chuyển sinh viên về trang kết quả
-  UI->>API: GET /payments/{txn_ref}
-  API-->>UI: Trạng thái thanh toán
+  GW-->>UI: Redirect người dùng về trang kết quả
+  UI->>API: GET /api/payments/{txn_ref}/status
+  API-->>UI: Trả về kết quả & mở khóa quyền mượn ngay lập tức (BR06)
 ```
 
-Hình 2.3. Luồng thanh toán tiền phạt.
-
-Khi mọi phiếu phạt của sinh viên đã PAID, BR01 không còn chặn và sinh viên được đặt mượn lại (BR06).
+*Hình 2.3. Luồng thanh toán phí phạt và tự động gỡ khóa quyền mượn.*
 
 ### 2.6. Lý do lựa chọn kiến trúc
 
-- Dễ chia việc theo vai trò đã phân công ở Lab 3: Chiến làm lớp giao diện, Khoa làm lớp nghiệp vụ và dữ liệu, Phát kiểm thử từng lớp độc lập.
-- Quy tắc nghiệp vụ và transaction tập trung ở một lớp nên xử lý được race condition và công nợ nhất quán; giao diện không tự quyết định gì về tồn kho.
-- Lớp nghiệp vụ không lưu trạng thái phiên (JWT) nên có thể chạy nhiều bản sau bộ cân bằng tải để đạt 500 người dùng đồng thời (NFR của Lab 3).
-- Không chọn Microservices: nhóm 4 người, 10 tuần, hệ thống chỉ có 4 module; chi phí vận hành và giao dịch phân tán lớn hơn lợi ích. Các Service ở Hình 2.1 tách theo module nên có thể tách riêng về sau.
+- **Phù hợp với mô hình làm việc Full-stack theo phân hệ:** Các Service nghiệp vụ (`Auth`, `Repository`, `Circulation`, `Fine`, `Payment`, `Report`) tách biệt rõ ràng giúp 4 thành viên phát triển độc lập từng cụm chức năng từ DB, API đến UI mà không gây xung đột mã nguồn (Merge Conflict).
+- **Đảm bảo tính toàn vẹn nghiệp vụ cao:** Toàn bộ logic giữ chỗ, kiểm tra lịch phòng và tính tiền phạt nằm trong Transaction của Laravel & PostgreSQL 16, ngăn chặn triệt để tình trạng âm kho.
+- **Khả năng mở rộng chịu tải tốt:** Xác thực qua Bearer Token của Sanctum và tách hàng đợi gửi email qua Laravel Queue giúp thời gian phản hồi API đặt mượn luôn dưới 3 giây và chịu tải tốt 500 người dùng đồng thời.
+- **Tinh gọn hơn Microservices:** Trong thời lượng 10 tuần với quy mô nhóm 4 thành viên, kiến trúc Modular Monolith 3 lớp trên Docker giúp triển khai nhanh, dễ kiểm thử tích hợp và không tốn chi phí quản lý giao dịch phân tán.
+
+---
 
 ## Chương 5. Đánh giá thiết kế
 
-### 5.1. Đối chiếu thiết kế với yêu cầu hệ thống
+### 5.1. Ma trận truy vết Thiết kế theo Chức năng Đề tài (`F-01` → `F-12`)
 
-| Yêu cầu (Lab 2, Lab 3) | Kiến trúc | Dữ liệu | Giao diện |
-| --- | --- | --- | --- |
-| US01 / UC01 Đăng nhập, phân quyền | Auth Service, JWT, Bcrypt | users, roles | W1 |
-| US02, US03 / UC04, UC05 Tra cứu, lịch trống | Resource Service, Loan Service | resources, categories, loans; FULLTEXT và chỉ mục lịch | W2 |
-| US04, US05 / UC06 Đặt mượn, hủy | Loan Service, giữ chỗ 10 phút (Hình 2.2) | loans, resources.available_quantity | W2, W3, W4 |
-| US06, US07 / UC09 Lịch sử, công nợ | Loan Service, Penalty Service | loans, penalties | W4 |
-| US08 / UC10 Thanh toán phạt | Payment Service, IPN (Hình 2.3) | payments, penalties | W4 |
-| US09 Nhắc hạn trả | Scheduler, dịch vụ Email | notifications | Thông báo trong hệ thống và email |
-| US10 / UC02 Quản lý tài nguyên | Resource Service | resources, categories | W6 |
-| US11 / UC07 Duyệt phiếu | Loan Service | loans | W5 |
-| US12, US13 / UC08 Ghi nhận trả, lập phiếu phạt | Loan Service, Penalty Service | loans, penalties | W5 |
-| US14 / UC11 Báo cáo | Report Service | truy vấn tổng hợp trên loans, penalties | Menu Báo cáo, chưa vẽ |
-| US15, US16 / UC03 Tài khoản, tham số | Auth Service, cấu hình | users, roles, system_settings | W7 |
-| NFR: tra cứu dưới 2 giây, 500 CCU | API không giữ phiên, nhân bản được; chỉ mục | FULLTEXT, các chỉ mục ở 3.5 | Phân trang danh sách |
-| NFR: bảo mật, sao lưu 02:00 | JWT, phân quyền theo vai trò | password_hash Bcrypt; backup hằng ngày | Ẩn chức năng theo vai trò |
+| Mã CN | Chức năng theo đặc tả đề tài | Tầng Nghiệp vụ (Laravel) | Bảng CSDL (PostgreSQL) | Màn hình UI |
+| --- | --- | --- | --- | --- |
+| **F-01** | Quản lý Danh mục Tài liệu số & Tài sản | `RepositoryService` | `categories`, `resources` | `W2`, `W6` |
+| **F-02** | Đọc tài liệu trực tuyến (*Online Reader*) | `RepositoryService` (Stream PDF) | `resources` (`file_url`) | `W2` (Modal đọc file) |
+| **F-03** | Đặt mượn Thiết bị / Sách in (Giữ chỗ 10p) | `CirculationService`, `Scheduler` | `loans`, `resources` | `W2`, `W3` |
+| **F-04** | Xác nhận Nhận & Trả tài sản (Mã QR) | `CirculationService` | `loans`, `resources` | `W3` (QR), `W5` (Quầy) |
+| **F-05** | Gửi Nhắc hạn trả tự động (3 ngày & 1 ngày) | `Scheduler`, `Queue`, Mailer | `notifications`, `loans` | Chuông thông báo & Email |
+| **F-06** | Tính phí phạt trễ hạn & Khóa quyền mượn | `FineService` | `penalties`, `system_settings` | `W4`, `W5` |
+| **F-06b** | Thanh toán phí phạt qua VNPay / MoMo | `PaymentService` (IPN Webhook) | `payments`, `penalties` | `W4` |
+| **F-07** | Đặt Phòng học theo khung giờ | `CirculationService` | `loans`, `resources` (`ROOM`) | `W2` (Lịch tuần), `W3` |
+| **F-08** | Quản lý Hủy & Điều chỉnh lịch đặt | `CirculationService` | `loans`, `audit_logs` | `W3`, `W4` |
+| **F-09** | Dashboard thống kê thời gian thực | `ReportService` | Truy vấn tổng hợp `loans`, `penalties` | `W6` / Menu Báo cáo |
+| **F-10** | Xuất Báo cáo định kỳ (Excel / PDF) | `ReportService` | `loans`, `resources`, `penalties` | Menu Báo cáo |
+| **F-11** | Xác thực OTP Email trường & Phân quyền | `AuthService`, Sanctum, Middleware | `users`, `roles`, `login_otps`, `system_settings` | `W1`, `W7` |
+| **F-12** | Nhật ký lưu vết kiểm toán (*Audit Trail*) | `AuditLogMiddleware` | `audit_logs` | `W7` (Tab Nhật ký) |
 
-### 5.2. Kiểm tra tính nhất quán giữa kiến trúc, lớp, dữ liệu và giao diện
+### 5.2. Kiểm tra tính nhất quán giữa Kiến trúc, Dữ liệu và Giao diện
 
-- Mỗi Service ở Hình 2.1 có bảng dữ liệu tương ứng ở Hình 3.1 và ít nhất một màn hình ở Chương 4, trừ Report Service chưa có wireframe.
-- Vòng đời phiếu mượn dùng một bộ trạng thái duy nhất ở Hình 2.2, bảng loans và các màn hình W3, W4, W5 (xem sơ đồ trạng thái ở Phụ lục).
-- Mọi quy tắc BR01 đến BR08 đều có chỗ thực thi: BR01 và BR02 ở Loan Service (Hình 2.2), BR03 ở Scheduler và `hold_expires_at`, BR04 ở system_settings và W7, BR05 ở Penalty Service và W5, BR06 ở Payment Service (Hình 2.3), BR07 ở phân quyền Auth Service, BR08 ở màn hình W1.
-- Phiếu phạt trả trễ sinh ra khi ghi nhận trả (W5) và hiện ở công nợ (W4), cùng một bảng penalties.
+- **Nhất quán vòng đời phiếu mượn:** Mọi thành phần từ `CirculationService`, bảng `loans.status` đến giao diện `W3`, `W4`, `W5` đều tuân thủ duy nhất một sơ đồ trạng thái gồm 7 trạng thái (`HOLDING`, `PENDING`, `BORROWING`, `RETURNED`, `REJECTED`, `CANCELLED`, `EXPIRED`).
+- **Nhất quán tiêu chí phi chức năng:**
+  - *Tốc độ tra cứu $< 2\text{s}$:* Đáp ứng nhờ chỉ mục toàn văn `GIN` của PostgreSQL 16 trên bảng `resources` kết hợp phân trang API.
+  - *Chống đặt trùng tuyệt đối:* Kết hợp khóa dòng nguyên tử khi trừ `available_quantity`, kiểm tra giao thoa khung giờ `(borrow_from, due_date)` và ràng buộc `Partial Unique Index` dưới tầng PostgreSQL.
+  - *Bảo mật & Minh bạch:* Mã OTP được băm Bcrypt trong `login_otps`; mọi hành động đăng nhập, đặt mượn, duyệt, trả, hủy và cấu hình đều được tự động ghi vào `audit_logs`.
 
-### 5.3. Các vấn đề còn tồn tại và hướng hoàn thiện
+### 5.3. Các rủi ro kỹ thuật và phương án kiểm soát
 
-| Vấn đề | Hướng xử lý |
+| Vấn đề kỹ thuật | Giải pháp kiểm soát đã thiết kế |
 | --- | --- |
-| Class Diagram Buổi 5 chưa có trong tài liệu, mục 3.7 dùng lớp suy ra | Đối chiếu lại tên lớp và thuộc tính khi có bản chính thức, sửa ánh xạ nếu lệch |
-| Lab 2 và Lab 3 mô tả trừ tồn kho khác nhau (trừ khi đặt, hoặc khi duyệt) | Đã chọn trừ một lần lúc giữ chỗ (mục 3.8); cần cập nhật lại UC07 trong SRS cho khớp |
-| Lab 2 liệt kê UC10, UC11 viết là UC010, UC011; US05 (hủy phiếu), US09 (nhắc hạn), US13 (lập phiếu phạt) chưa có use case riêng | Sửa mã trong SRS; ghép US05 vào UC06, US13 vào UC08 hoặc thêm use case riêng |
-| Mức phạt hư hỏng và mất do thủ thư tự nhập, chưa có bảng giá | Hỏi giảng viên hướng dẫn hoặc thủ thư; có thể thêm tham số tỷ lệ theo giá trị tài nguyên |
-| Kiểm tra trùng phiếu và trùng lịch nằm ở tầng ứng dụng, không có ràng buộc DB | Viết test đồng thời cho luồng đặt mượn (Phát) và chạy thử 500 người dùng đồng thời |
-| Nhắc hạn mới có email; Zalo ZNS, SMS để sau | Giữ ở hướng phát triển của Lab 3 |
-| Wireframe chưa có màn hình báo cáo, Hồ sơ cá nhân, Phân quyền | Bổ sung ở Sprint 3 cùng Report Service |
+| Nhiều người dùng cùng đặt thiết bị / phòng học cuối cùng tại cùng một thời điểm | Trừ tồn kho bằng câu lệnh `UPDATE ... WHERE available_quantity > 0` trong Transaction + viết kịch bản kiểm thử đồng thời (Concurrency Test) và thử tải 500 CCU. |
+| Cổng thanh toán gọi lặp IPN nhiều lần gây cập nhật trùng giao dịch | Ràng buộc `UNIQUE` trên cột `payments.txn_ref` và kiểm tra trạng thái `status != 'SUCCESS'` trong Transaction trước khi đổi trạng thái phiếu phạt. |
+| Gửi email OTP và email nhắc hạn hàng loạt làm chậm tốc độ phản hồi API | Đẩy toàn bộ tác vụ gửi mail vào **Laravel Queue** chạy nền; môi trường phát triển dùng **Mailpit** nội bộ để không bị giới hạn hạn ngạch SMTP. |
+| Xóa nhầm tài sản hoặc tài khoản làm gãy lịch sử mượn trả và kiểm toán | Áp dụng khóa ngoại `ON DELETE RESTRICT` toàn hệ thống kết hợp cơ chế xóa mềm (`status = 'INACTIVE'` / `'LOCKED'`). |
 
-## Kết luận
+---
 
-Báo cáo hoàn thiện ba phần thiết kế cho hệ thống Thư viện số và Quản lý thiết bị: kiến trúc 3 lớp với hai luồng chính (đặt mượn có giữ chỗ và thanh toán phạt), cơ sở dữ liệu 9 bảng có Data Dictionary và ràng buộc, và 7 wireframe cho ba nhóm người dùng. Thiết kế bám các use case và user story của Lab 2, Lab 3 và xử lý trực tiếp rủi ro race condition mà nhóm đã xác định. Bước tiếp theo là đối chiếu với Class Diagram Buổi 5, cập nhật SRS theo 5.3 và dựng schema cho Sprint 1.
-
-## Tài liệu tham khảo
-
-1. Đề cương Lab 06: Architectural & Detailed Design.
-2. Báo cáo Lab 02 (52400103_TranMinhChien_LAB02): Phân tích và đặc tả yêu cầu phần mềm.
-3. Báo cáo Lab 03 (52400103_TranMinhChien_LAB03): Agile Project Management & Scrum Framework.
-
-## Phụ lục
-
-- Sơ đồ kiến trúc tổng thể: Hình 2.1.
-- Sơ đồ ERD: Hình 3.1 trong [database.md](database.md).
-- Data Dictionary: mục 3.4 trong [database.md](database.md).
-- Bộ UI Wireframes: mục 4.2 đến 4.6 (W1 đến W7) trong [ui-design.md](ui-design.md).
-- Sơ đồ bổ sung: Hình 2.2 (luồng đặt mượn), Hình 2.3 (luồng thanh toán) và sơ đồ trạng thái phiếu mượn dưới đây.
+## Phụ lục: Sơ đồ Trạng thái Phiếu mượn & Đặt phòng (`loans.status`)
 
 ```mermaid
 stateDiagram-v2
-  [*] --> HOLDING: Đặt mượn, trừ tồn kho
-  HOLDING --> PENDING: Sinh viên xác nhận
-  HOLDING --> EXPIRED: Quá 10 phút, cộng lại tồn kho
-  PENDING --> BORROWING: Thủ thư duyệt
-  PENDING --> REJECTED: Thủ thư từ chối, cộng lại tồn kho
-  PENDING --> CANCELLED: Sinh viên hủy, cộng lại tồn kho
-  BORROWING --> RETURNED: Ghi nhận trả, cộng lại tồn kho
+  [*] --> HOLDING: Nhấn Đặt mượn (Tạm trừ tồn kho, giữ 10 phút)
+  HOLDING --> PENDING: Người dùng xác nhận (Sinh mã QR phiếu mượn)
+  HOLDING --> EXPIRED: Quá 10 phút không xác nhận (Scheduler hoàn lại tồn kho)
+  PENDING --> BORROWING: Thủ thư quét QR / Duyệt giao tài sản tại quầy
+  PENDING --> REJECTED: Thủ thư từ chối (Hoàn lại tồn kho)
+  PENDING --> CANCELLED: Người dùng hủy trước hạn (Hoàn lại tồn kho)
+  BORROWING --> RETURNED: Thủ thư quét QR ghi nhận trả (Hoàn tồn kho; tính phạt nếu trễ/hỏng)
   RETURNED --> [*]
   EXPIRED --> [*]
   REJECTED --> [*]
   CANCELLED --> [*]
 ```
 
-Hình P.1. Sơ đồ trạng thái của phiếu mượn (loans.status).
-
+*Hình P.1. Sơ đồ chuyển đổi trạng thái chuẩn của phiếu mượn tài sản và đặt phòng.*
