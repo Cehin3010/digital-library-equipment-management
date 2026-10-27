@@ -148,7 +148,8 @@ MAIL_MAILER=smtp
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
 MAIL_USERNAME=email-du-an@gmail.com
-MAIL_PASSWORD=mat-khau-ung-dung-16-ky-tu
+MAIL_PASSWORD=
+
 MAIL_ENCRYPTION=tls
 MAIL_FROM_ADDRESS=email-du-an@gmail.com
 MAIL_FROM_NAME="Thư viện số"
@@ -183,12 +184,20 @@ Dừng toàn bộ: `docker compose down`. Xem log: `docker compose logs -f app`.
 
 ## 7. Quy tắc làm việc với Git
 
-- Nhánh chính `main` chỉ nhận code qua pull request, cần người review trong cặp (xem mục 2) đồng ý.
-- Mỗi việc là một Issue trên GitHub. Tên nhánh theo số Issue: `feature/<số-issue>-<mô-tả-ngắn>`, ví dụ `feature/12-dat-muon`.
-- Commit nhỏ, lời nhắn rõ ràng, ví dụ `feat: add loan hold expiry job`.
-- Kéo `main` về nhánh của mình trước khi tạo pull request để tránh xung đột.
-- Tạo pull request thì kéo thẻ sang Code Review; người review trong cặp đồng ý và ghép xong thì kéo sang Done.
+Nhóm dùng mô hình Git Flow rút gọn:
 
+| Nhánh | Mục đích |
+| --- | --- |
+| `main` | Bản ổn định, chỉ nhận code từ `develop` khi chốt bản demo hoặc nộp bài |
+| `develop` | Nơi tích hợp các tính năng đang làm |
+| `feature/<số-issue>-<mô-tả>` | Mỗi việc một nhánh, tạo từ `develop`, ví dụ `feature/12-dat-muon` |
+
+- Không commit trực tiếp lên `main` và `develop`. Nên bật *Settings → Branches → Branch protection rules* cho cả hai nhánh (bắt buộc PR và ít nhất 1 approval) để GitHub chặn thay cho mọi người.
+- Quy trình: `git switch develop` → `git pull origin develop` → `git switch -c feature/...` → commit → push → tạo PR vào `develop`.
+- PR cần người trong cặp review (xem mục 2) approve mới được merge. Merge xong thì xóa nhánh feature.
+- Trước khi tạo PR, kéo `develop` mới nhất về nhánh của mình để tránh xung đột.
+- Commit nhỏ, lời nhắn rõ, ví dụ `feat: add loan hold expiry job`.
+- Tạo PR thì kéo thẻ sang Code Review; được duyệt và ghép xong thì kéo sang Done.
 ## 8. Giải thích thuật ngữ
 
 Phần này dành cho các bạn chưa quen lập trình web. Mỗi mục có ví dụ lấy từ chính dự án.
