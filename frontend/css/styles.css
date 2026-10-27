@@ -1,0 +1,198 @@
+/* ==========================================================================
+   HỆ THỐNG THƯ VIỆN SỐ & CHO MƯỢN TÀI SẢN ĐẠI HỌC - BEM STYLESHEET
+   Tuân thủ nghiêm ngặt quy tắc đặt tên BEM (Block__Element--Modifier)
+   và Yêu cầu Phi chức năng #5 (Xanh: Còn trống, Đỏ: Đang mượn, Xám: Bảo trì)
+   ========================================================================== */
+
+:root {
+  --color-available-bg: #dcfce7;
+  --color-available-text: #15803d;
+  --color-available-border: #86efac;
+
+  --color-borrowed-bg: #fee2e2;
+  --color-borrowed-text: #b91c1c;
+  --color-borrowed-border: #fca5a5;
+
+  --color-maintenance-bg: #f1f5f9;
+  --color-maintenance-text: #475569;
+  --color-maintenance-border: #cbd5e1;
+
+  --color-primary: #1d4ed8;
+  --color-primary-hover: #1e40af;
+}
+
+/* Block: card (Thẻ hiển thị tài liệu số, thiết bị vật lý, phòng học) */
+.card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.25rem;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+/* Element: card__header, card__title, card__meta, card__button */
+.card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.card__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.4;
+}
+
+.card__meta {
+  font-size: 0.85rem;
+  color: #475569;
+  margin-bottom: 0.5rem;
+}
+
+.card__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+/* Modifier: card__button--active, card__button--disabled */
+.card__button--active {
+  background-color: var(--color-primary);
+  color: #ffffff;
+}
+
+.card__button--active:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.card__button--disabled {
+  background-color: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+/* Block: status-badge (Nhãn màu trạng thái tài sản theo NFR #5) */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.status-badge__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+}
+
+/* Modifier: Xanh (Còn trống - AVAILABLE) */
+.status-badge--available {
+  background-color: var(--color-available-bg);
+  color: var(--color-available-text);
+  border-color: var(--color-available-border);
+}
+
+.status-badge--available .status-badge__dot {
+  background-color: #16a34a;
+}
+
+/* Modifier: Đỏ (Đang mượn - BORROWED) */
+.status-badge--borrowed {
+  background-color: var(--color-borrowed-bg);
+  color: var(--color-borrowed-text);
+  border-color: var(--color-borrowed-border);
+}
+
+.status-badge--borrowed .status-badge__dot {
+  background-color: #dc2626;
+}
+
+/* Modifier: Xám (Bảo trì - MAINTENANCE) */
+.status-badge--maintenance {
+  background-color: var(--color-maintenance-bg);
+  color: var(--color-maintenance-text);
+  border-color: var(--color-maintenance-border);
+}
+
+.status-badge--maintenance .status-badge__dot {
+  background-color: #64748b;
+}
+
+/* Block: nav-tab (Thanh chuyển phân hệ chức năng) */
+.nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 3px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.nav-tab:hover {
+  color: #1d4ed8;
+  background-color: #f8fafc;
+}
+
+.nav-tab--active {
+  color: #1d4ed8;
+  border-bottom-color: #1d4ed8;
+  background-color: #eff6ff;
+}
+
+/* Block: qr-box (Khung hiển thị mã QR điện tử F-03, F-04) */
+.qr-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border: 2px dashed #94a3b8;
+  border-radius: 0.75rem;
+}
+
+.qr-box__matrix {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  padding: 0.5rem;
+  background-color: #ffffff;
+  border: 2px solid #0f172a;
+}
+
+.qr-box__cell {
+  width: 10px;
+  height: 10px;
+  background-color: #ffffff;
+}
+
+.qr-box__cell--filled {
+  background-color: #0f172a;
+}
+

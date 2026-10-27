@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hệ thống Thư viện Số &amp; Cho mượn Tài sản Đại học — TDTU Nhóm 3</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 font-sans">
+  <!-- Khu vực hiển thị thông báo thân thiện (Friendly Error / Toast Notifications) -->
+  <aside id="toast-container" class="fixed top-4 right-4 z-50 w-96 max-w-full" aria-live="polite"></aside>
+
+  <!-- HEADER: Thông tin Hệ thống & Bộ chuyển đổi Vai trò RBAC (F-11) -->
+  <header class="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="flex items-center justify-center w-11 h-11 font-extrabold text-white bg-blue-700 rounded-xl shadow">
+          TDTU
+        </div>
+        <div>
+          <h1 class="text-lg font-extrabold text-slate-900">
+            Hệ thống Thư viện Số &amp; Cho mượn Tài sản Đại học
+          </h1>
+          <p class="text-xs text-slate-500">
+            University Digital Library &amp; Asset Lending Platform • Nhóm 3: Làng Xi Mi (52400175 - 52400051 - 52400103 - 51900821)
+          </p>
+        </div>
+      </div>
+
+      <!-- Bộ chuyển đổi Tác tử (Actors) phục vụ kiểm thử phân quyền RBAC (F-11) -->
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2">
+          <label for="actor-role-select" class="text-xs font-bold text-slate-700">
+            Vai trò đăng nhập (SSO/RBAC):
+          </label>
+          <select
+            id="actor-role-select"
+            name="actor_role_select"
+            class="px-3 py-1.5 text-xs font-semibold text-slate-800 bg-slate-100 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+          >
+            <option value="1">Lý Hạo Danh (52400175) — Quản trị viên (Admin)</option>
+            <option value="2">Nguyễn Anh Khoa (52400051) — Cán bộ Thư viện (Librarian)</option>
+            <option value="3">TS. Trần Minh Chiến (52400103) — Giảng viên (Lecturer)</option>
+            <option value="4">Hồ Thịnh Phát (51900821) — Sinh viên (Student)</option>
+          </select>
+        </div>
+        <span id="current-role-badge" class="hidden md:inline-block px-3 py-1 text-xs font-semibold text-blue-800 bg-blue-50 border border-blue-200 rounded-full"></span>
+        <span id="current-debt-badge" class="px-3 py-1 text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 rounded-full"></span>
+      </div>
+    </div>
+
+    <!-- Thanh điều hướng nhanh tới 6 Phân hệ chức năng -->
+    <nav class="bg-slate-50 border-t border-slate-200" aria-label="Điều hướng phân hệ">
+      <div class="max-w-7xl mx-auto px-4 flex flex-wrap items-center gap-1 overflow-x-auto">
+        <a href="#module-digital-repo" class="nav-tab nav-tab--active">1. Kho Tài liệu Số &amp; Reader (F-01, F-02)</a>
+        <a href="#module-asset-lending" class="nav-tab">2. Mượn/Trả Tài sản &amp; Quét QR (F-03, F-04)</a>
+        <a href="#module-reminder-fine" class="nav-tab">3. Nhắc Hạn &amp; Phí Phạt Tự Động (F-05, F-06)</a>
+        <a href="#module-room-booking" class="nav-tab">4. Đặt Phòng Học &amp; Lịch Tuần (F-07, F-08)</a>
+        <a href="#module-dashboard-reports" class="nav-tab">5. Dashboard &amp; Báo Cáo (F-09, F-10)</a>
+        <a href="#module-security-audit" class="nav-tab">6. Bảo Mật, Kiểm Thử &amp; Audit Log (F-11, F-12)</a>
+      </div>
+    </nav>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-10">
+    <!-- Banner Cảnh báo Khóa Quyền Mượn khi Công nợ >= 100.000 VNĐ (F-06) -->
+    <section id="account-lock-banner" class="hidden p-4 text-sm text-red-900 bg-red-100 border-l-4 border-red-600 rounded-lg shadow-sm" role="alert"></section>
+
+    <!-- Khu vực Ưu tiên: Thông báo Nhắc hạn trả tự động (Còn 3 ngày, 1 ngày - F-05) -->
+    <section id="module-reminder-fine" class="p-5 bg-white border border-slate-200 rounded-xl shadow-sm">
+      <header class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div>
+          <h2 class="text-base font-extrabold text-slate-900">
+            🔔 Phân hệ 3: Động cơ Nhắc Hạn Tự Động &amp; Tính Phí Phạt (F-05, F-06)
+          </h2>
+          <p class="text-xs text-slate-600">
+            Ưu tiên hiển thị các phiếu mượn sắp đến hạn (còn 3 ngày, còn 1 ngày) và tự động tính phí phạt / khóa quyền mượn khi vượt ngưỡng 100.000 VNĐ.
+          </p>
+        </div>
+        <span class="px-3 py-1 text-xs font-bold text-amber-800 bg-amber-100 rounded-full">
+          Auto-Reminder Cron Active
+        </span>
+      </header>
+
+      <div id="priority-notifications-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4"></div>
+
+      <!-- Bộ mô phỏng tính phí phạt chuẩn SRP -->
+      <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-wrap items-end justify-between gap-4">
+        <div class="flex flex-wrap items-end gap-3">
+          <div>
+            <label for="sim-days-late" class="block text-xs font-bold text-slate-700 mb-1">Số ngày trả trễ:</label>
+            <input
+              type="number"
+              id="sim-days-late"
+              name="sim_days_late"
+              value="5"
+              min="0"
+              max="60"
+              class="w-28 px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg"
+            >
+          </div>
+          <div>
+            <label for="sim-daily-rate" class="block text-xs font-bold text-slate-700 mb-1">Đơn giá phạt/ngày (VNĐ):</label>
+            <select
+              id="sim-daily-rate"
+              name="sim_daily_rate"
+              class="px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg"
+            >
+              <option value="25000">Thiết bị số / Máy chiếu / Camera (25.000đ/ngày)</option>
+              <option value="10000">Sách in / Bộ Kit Lab (10.000đ/ngày)</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            id="simulate-fine-btn"
+            class="flex items-center justify-center px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition"
+          >
+            Tính Phí Phạt (F-06)
+          </button>
+        </div>
+        <p id="sim-fine-output" class="text-xs font-bold text-blue-900 bg-blue-50 px-3 py-2 border border-blue-200 rounded-lg">
+          Kết quả tính phí phạt (SRP): 5 ngày × 25.000đ = 125.000 VNĐ (Vượt ngưỡng 100.000đ → Tự động khóa quyền mượn)
+        </p>
+      </div>
+    </section>
+
+    <!-- PHÂN HỆ 1: QUẢN LÝ KHO TÀI LIỆU SỐ & TRÌNH ĐỌC TRỰC TUYẾN (F-01, F-02) -->
+    <section id="module-digital-repo" class="p-6 bg-white border border-slate-200 rounded-xl shadow-sm">
+      <header class="flex flex-wrap items-center justify-between gap-2 mb-5">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900">
+            📚 Phân hệ 1: Quản lý Kho Tài liệu Số &amp; Đọc Trực Tuyến (F-01, F-02)
+          </h2>
+          <p class="text-xs text-slate-600">
+            Kiểm tra trùng mã ISBN, tự động phân loại theo khung thập phân Dewey, tìm kiếm đa tiêu chí (&lt; 2 giây) và trình đọc tích hợp giới hạn trang in.
+          </p>
+        </div>
+        <span id="digital-doc-count" class="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-full"></span>
+      </header>
+
+      <!-- Bộ lọc tìm kiếm đa tiêu chí (F-01) -->
+      <form id="search-document-form" class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 mb-6 bg-slate-50 border border-slate-200 rounded-lg" onsubmit="return false;">
+        <div>
+          <label for="search-doc-keyword" class="block text-xs font-bold text-slate-700 mb-1">
+            Từ khóa (Tên sách, Tác giả, ISBN, Mã Dewey):
+          </label>
+          <input
+            type="search"
+            id="search-doc-keyword"
+            name="search_doc_keyword"
+            placeholder="VD: Clean Code, 978-0132350884, 005.1..."
+            class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+          >
+        </div>
+        <div>
+          <label for="search-doc-category" class="block text-xs font-bold text-slate-700 mb-1">
+            Thể loại học liệu (Phân loại Dewey):
+          </label>
+          <select
+            id="search-doc-category"
+            name="search_doc_category"
+            class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+          >
+            <option value="">-- Tất cả thể loại --</option>
+            <option value="Lập trình & Kỹ thuật Phần mềm">Lập trình &amp; Kỹ thuật Phần mềm (Dewey 005.1)</option>
+            <option value="CNTT & Khoa học Máy tính">CNTT &amp; Khoa học Máy tính (Dewey 004.6)</option>
+            <option value="Trí tuệ Nhân tạo & Dữ liệu">Trí tuệ Nhân tạo &amp; Dữ liệu (Dewey 006.3)</option>
+            <option value="Toán học & Thống kê">Toán học &amp; Thống kê (Dewey 510.1)</option>
+            <option value="Kinh tế & Quản trị Dự án">Kinh tế &amp; Quản trị Dự án (Dewey 658.4)</option>
+          </select>
+        </div>
+        <div>
+          <label for="search-doc-year" class="block text-xs font-bold text-slate-700 mb-1">
+            Năm xuất bản:
+          </label>
+          <select
+            id="search-doc-year"
+            name="search_doc_year"
+            class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+          >
+            <option value="">-- Tất cả các năm --</option>
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+            <option value="2022">2022</option>
+            <option value="2021">2021</option>
+            <option value="2020">2020</option>
+          </select>
+        </div>
+      </form>
+
+      <!-- Trình đọc tài liệu trực tuyến tích hợp (Online Reader - F-02) -->
+      <article id="online-reader-panel" class="hidden mb-6 p-5 bg-slate-900 text-white rounded-xl shadow-lg">
+        <header class="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-slate-700">
+          <div>
+            <span class="px-2.5 py-0.5 text-xs font-bold text-emerald-300 bg-emerald-900/60 border border-emerald-600 rounded">
+              TRÌNH ĐỌC HỌC LIỆU TRỰC TUYẾN TÍCH HỢP (ONLINE READER - F-02)
+            </span>
+            <h3 id="reader-doc-title" class="mt-2 text-lg font-extrabold text-white"></h3>
+            <p id="reader-doc-meta" class="text-xs text-slate-300 mt-1"></p>
+          </div>
+          <button
+            type="button"
+            id="reader-close-btn"
+            class="px-3 py-1.5 text-xs font-bold text-slate-200 bg-slate-800 border border-slate-600 rounded-lg hover:bg-slate-700"
+          >
+            Đóng trình đọc ✕
+          </button>
+        </header>
+
+        <section id="reader-content-preview" class="my-4 p-5 bg-white text-slate-900 rounded-lg shadow-inner"></section>
+
+        <footer class="flex flex-wrap items-end justify-between gap-4 pt-3 border-t border-slate-700">
+          <div class="space-y-1">
+            <p id="reader-page-indicator" class="text-xs font-bold text-blue-300"></p>
+            <p id="reader-print-indicator" class="text-xs font-bold text-amber-300"></p>
+          </div>
+          <div class="flex flex-wrap items-end gap-3">
+            <div>
+              <label for="reader-page-input" class="block text-xs font-semibold text-slate-300 mb-1">Chuyển tới trang:</label>
+              <input
+                type="number"
+                id="reader-page-input"
+                name="reader_page_input"
+                min="1"
+                value="120"
+                class="w-24 px-2.5 py-1.5 text-sm text-slate-900 bg-white rounded-lg"
+              >
+            </div>
+            <div>
+              <label for="reader-print-input" class="block text-xs font-semibold text-slate-300 mb-1">Số trang muốn in thêm:</label>
+              <input
+                type="number"
+                id="reader-print-input"
+                name="reader_print_input"
+                min="0"
+                max="20"
+                value="0"
+                class="w-28 px-2.5 py-1.5 text-sm text-slate-900 bg-white rounded-lg"
+              >
+            </div>
+            <button
+              type="button"
+              id="reader-save-progress-btn"
+              class="px-4 py-2 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-500 transition"
+            >
+              💾 Lưu Tiến Độ &amp; Kiểm Tra Lệnh In (F-02)
+            </button>
+          </div>
+        </footer>
+      </article>
+
+      <!-- Danh sách thẻ tài liệu số -->
+      <div id="digital-docs-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"></div>
+
+      <!-- Biểu mẫu Thêm / Đề xuất Tài liệu Số mới (Kiểm tra trùng ISBN & Phân loại Dewey - F-01) -->
+      <details class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+        <summary class="text-sm font-bold text-blue-800 cursor-pointer">
+          ➕ Thêm mới / Đề xuất bổ sung Tài liệu Số vào Kho (Kiểm tra trùng ISBN &amp; Tự động gắn mã Dewey - F-01)
+        </summary>
+        <form id="add-document-form" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label for="new-doc-title" class="block text-xs font-bold text-slate-700 mb-1">Tên tài liệu (*):</label>
+            <input
+              type="text"
+              id="new-doc-title"
+              name="new_doc_title"
+              required
+              placeholder="VD: Kiến trúc Phần mềm Hiện đại"
+              class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+            >
+          </div>
+          <div>
+            <label for="new-doc-author" class="block text-xs font-bold text-slate-700 mb-1">Tác giả (*):</label>
+            <input
+              type="text"
+              id="new-doc-author"
+              name="new_doc_author"
+              required
+              placeholder="VD: Martin Fowler"
+              class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+            >
+          </div>
+          <div>
+            <label for="new-doc-isbn" class="block text-xs font-bold text-slate-700 mb-1">Mã ISBN (Kiểm tra trùng):</label>
+            <input
+              type="text"
+              id="new-doc-isbn"
+              name="new_doc_isbn"
+              required
+              placeholder="VD: 978-0134757599"
+              class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+            >
+          </div>
+          <div>
+            <label for="new-doc-category" class="block text-xs font-bold text-slate-700 mb-1">Thể loại (Gắn mã Dewey tự động):</label>
+            <select
+              id="new-doc-category"
+              name="new_doc_category"
+              class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+            >
+              <option value="Lập trình & Kỹ thuật Phần mềm">Lập trình &amp; Kỹ thuật Phần mềm (Dewey 005.1)</option>
+              <option value="CNTT & Khoa học Máy tính">CNTT &amp; Khoa học Máy tính (Dewey 004.6)</option>
+              <option value="Trí tuệ Nhân tạo & Dữ liệu">Trí tuệ Nhân tạo &amp; Dữ liệu (Dewey 006.3)</option>
+              <option value="Toán học & Thống kê">Toán học &amp; Thống kê (Dewey 510.1)</option>
+              <option value="Kinh tế & Quản trị Dự án">Kinh tế &amp; Quản trị Dự án (Dewey 658.4)</option>
+            </select>
+          </div>
+          <div>
+            <label for="new-doc-year" class="block text-xs font-bold text-slate-700 mb-1">Năm xuất bản:</label>
+            <input
+              type="number"
+              id="new-doc-year"
+              name="new_doc_year"
+              value="2026"
+              min="1990"
+              max="2030"
+              class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+            >
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label for="new-doc-format" class="block text-xs font-bold text-slate-700 mb-1">Định dạng:</label>
+              <select
+                id="new-doc-format"
+                name="new_doc_format"
+                class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+              >
+                <option value="PDF">PDF</option>
+                <option value="EPUB">EPUB</option>
+              </select>
+            </div>
+            <div>
+              <label for="new-doc-pages" class="block text-xs font-bold text-slate-700 mb-1">Tổng số trang:</label>
+              <input
+                type="number"
+                id="new-doc-pages"
+                name="new_doc_pages"
+                value="320"
+                min="10"
+                class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+              >
+            </div>
+          </div>
+          <div class="md:col-span-3 flex justify-end">
+            <button
+              type="submit"
+              class="px-5 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition"
+            >
+              Lưu Tài Liệu Vào Kho Số (F-01)
+            </button>
+          </div>
+        </form>
+      </details>
+    </section>
+
+    <!-- PHÂN HỆ 2: ĐĂNG KÝ MƯỢN & TRẢ TÀI SẢN VẬT LÝ (F-03, F-04) -->
+    <section id="module-asset-lending" class="p-6 bg-white border border-slate-200 rounded-xl shadow-sm">
+      <header class="flex flex-wrap items-center justify-between gap-4 mb-5">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900">
+            💻 Phân hệ 2: Đăng ký Mượn &amp; Trả Tài sản Vật lý qua Mã QR (F-03, F-04)
+          </h2>
+          <p class="text-xs text-slate-600">
+            Hiển thị màu trạng thái chuẩn NFR #5 (🟢 Xanh: Còn trống, 🔴 Đỏ: Đang mượn, ⚪ Xám: Bảo trì). Đặt mượn sinh mã QR và quét tại quầy.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <label for="filter-asset-status" class="text-xs font-bold text-slate-700">Lọc theo trạng thái:</label>
+          <select
+            id="filter-asset-status"
+            name="filter_asset_status"
+            class="px-3 py-1.5 text-xs font-semibold bg-slate-100 border border-slate-300 rounded-lg"
+          >
+            <option value="">Tất cả trạng thái (Xanh / Đỏ / Xám)</option>
+            <option value="AVAILABLE">🟢 Còn trống (AVAILABLE)</option>
+            <option value="BORROWED">🔴 Đang mượn (BORROWED)</option>
+            <option value="MAINTENANCE">⚪ Bảo trì (MAINTENANCE)</option>
+          </select>
+        </div>
+      </header>
+
+      <!-- Danh mục thiết bị / sách in -->
+      <div id="physical-assets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"></div>
+
+      <!-- Quầy Thư viện: Máy Quét Mã QR Nhận & Trả Tài sản (F-04) -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 p-5 bg-slate-50 border border-slate-200 rounded-xl mb-6">
+        <div class="lg:col-span-2">
+          <h3 class="text-sm font-extrabold text-slate-900 mb-1">
+            📷 Quầy Thư Viện: Quét Mã QR Bàn Giao &amp; Nhận Trả Tài Sản (F-04, F-06)
+          </h3>
+          <p class="text-xs text-slate-600 mb-4">
+            Dành cho <strong>Cán bộ Thư viện</strong> hoặc <strong>Quản trị viên</strong>: Quét mã QR để chuyển trạng thái từ <em>Chờ nhận</em> sang <em>Đang mượn</em>, hoặc từ <em>Đang mượn</em> sang <em>Đã trả</em> (tự động tính phí phạt nếu trễ hạn).
+          </p>
+
+          <form id="counter-qr-scan-form" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="md:col-span-2">
+              <label for="counter-qr-input" class="block text-xs font-bold text-slate-700 mb-1">
+                Mã QR Phiếu Mượn (Nhấn vào mã QR ở bảng dưới để nạp nhanh):
+              </label>
+              <input
+                type="text"
+                id="counter-qr-input"
+                name="counter_qr_input"
+                required
+                value="QR-TDTU-EQ-CAM-03-A8F921B0"
+                class="w-full px-3 py-2 text-sm font-mono bg-white border border-slate-300 rounded-lg"
+              >
+            </div>
+            <div>
+              <label for="counter-days-late" class="block text-xs font-bold text-slate-700 mb-1">
+                Số ngày trễ (Giả lập F-06):
+              </label>
+              <input
+                type="number"
+                id="counter-days-late"
+                name="counter_days_late"
+                value="0"
+                min="0"
+                max="30"
+                class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+              >
+            </div>
+            <div class="md:col-span-2">
+              <label for="counter-return-condition" class="block text-xs font-bold text-slate-700 mb-1">
+                Ghi nhận tình trạng tài sản khi nhận lại:
+              </label>
+              <select
+                id="counter-return-condition"
+                name="counter_return_condition"
+                class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+              >
+                <option value="Tốt - Nguyên vẹn (100%)">Tốt - Nguyên vẹn (100%) → Mở lại trạng thái Còn trống (Xanh)</option>
+                <option value="Trầy xước nhẹ vỏ ngoài (95%)">Trầy xước nhẹ vỏ ngoài (95%) → Mở lại trạng thái Còn trống (Xanh)</option>
+                <option value="Hư hỏng linh kiện - Cần chuyển Bảo trì">Hư hỏng linh kiện → Tự động chuyển sang Bảo trì (Xám)</option>
+              </select>
+            </div>
+            <div class="flex items-end">
+              <button
+                type="submit"
+                class="w-full px-4 py-2 text-sm font-bold text-white bg-emerald-700 rounded-lg hover:bg-emerald-800 transition"
+              >
+                ⚡ Quét Mã QR Xác Nhận
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Hiển thị mã QR điện tử trực quan -->
+        <div id="active-qr-preview" class="qr-box justify-center">
+          <div class="qr-box__matrix">
+            <span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span>
+            <span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell"></span><span class="qr-box__cell"></span><span class="qr-box__cell qr-box__cell--filled"></span>
+            <span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell"></span><span class="qr-box__cell qr-box__cell--filled"></span>
+            <span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell"></span><span class="qr-box__cell qr-box__cell--filled"></span>
+            <span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span>
+            <span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell"></span><span class="qr-box__cell"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell"></span><span class="qr-box__cell qr-box__cell--filled"></span>
+            <span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span><span class="qr-box__cell qr-box__cell--filled"></span>
+          </div>
+          <p class="mt-2 text-xs font-mono font-bold text-slate-800">QR-TDTU-EQ-CAM-03-A8F921B0</p>
+          <p class="text-[11px] text-slate-500">Mã QR Điện tử Xác nhận tại Quầy</p>
+        </div>
+      </div>
+
+      <!-- Bảng danh sách Phiếu mượn Điện tử -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-100 text-slate-700 uppercase">
+              <th class="px-3 py-2.5">Mã Phiếu</th>
+              <th class="px-3 py-2.5">Người Mượn</th>
+              <th class="px-3 py-2.5">Tài Sản Vật Lý</th>
+              <th class="px-3 py-2.5">Mã QR (Nhấn để quét)</th>
+              <th class="px-3 py-2.5">Thời Gian Mượn → Hạn Trả</th>
+              <th class="px-3 py-2.5">Trạng Thái</th>
+              <th class="px-3 py-2.5">Phí Phạt</th>
+            </tr>
+          </thead>
+          <tbody id="borrow-transactions-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PHÂN HỆ 4: ĐẶT PHÒNG HỌC & KHÔNG GIAN THẢO LUẬN (F-07, F-08) -->
+    <section id="module-room-booking" class="p-6 bg-white border border-slate-200 rounded-xl shadow-sm">
+      <header class="mb-5">
+        <h2 class="text-lg font-extrabold text-slate-900">
+          🏫 Phân hệ 4: Đặt Phòng Học &amp; Không Gian Thảo Luận (F-07, F-08)
+        </h2>
+        <p class="text-xs text-slate-600">
+          Kiểm tra xung đột lịch theo thời gian thực, miễn phí 100% cho Giảng viên (theo Docblock Mục 5) và cho phép hủy lịch trước 2 giờ không phạt.
+        </p>
+      </header>
+
+      <!-- Danh sách Phòng học -->
+      <div id="study-rooms-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"></div>
+
+      <!-- Biểu mẫu Đặt Phòng Học -->
+      <form id="room-booking-form" class="grid grid-cols-1 md:grid-cols-6 gap-3 p-4 mb-6 bg-slate-50 border border-slate-200 rounded-xl">
+        <div class="md:col-span-2">
+          <label for="booking-room-id" class="block text-xs font-bold text-slate-700 mb-1">Chọn phòng học (*):</label>
+          <select
+            id="booking-room-id"
+            name="booking_room_id"
+            class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+          ></select>
+        </div>
+        <div>
+          <label for="booking-date" class="block text-xs font-bold text-slate-700 mb-1">Ngày đặt (*):</label>
+          <input
+            type="date"
+            id="booking-date"
+            name="booking_date"
+            value="2026-10-28"
+            required
+            class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+          >
+        </div>
+        <div>
+          <label for="booking-start-time" class="block text-xs font-bold text-slate-700 mb-1">Giờ bắt đầu:</label>
+          <input
+            type="time"
+            id="booking-start-time"
+            name="booking_start_time"
+            value="10:00"
+            required
+            class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+          >
+        </div>
+        <div>
+          <label for="booking-end-time" class="block text-xs font-bold text-slate-700 mb-1">Giờ kết thúc:</label>
+          <input
+            type="time"
+            id="booking-end-time"
+            name="booking_end_time"
+            value="12:00"
+            required
+            class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+          >
+        </div>
+        <div>
+          <label for="booking-attendees" class="block text-xs font-bold text-slate-700 mb-1">Số người:</label>
+          <input
+            type="number"
+            id="booking-attendees"
+            name="booking_attendees"
+            value="6"
+            min="1"
+            max="30"
+            required
+            class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+          >
+        </div>
+        <div class="md:col-span-4">
+          <label for="booking-purpose" class="block text-xs font-bold text-slate-700 mb-1">Mục đích sử dụng:</label>
+          <input
+            type="text"
+            id="booking-purpose"
+            name="booking_purpose"
+            value="Thảo luận nhóm môn Công nghệ Phần mềm"
+            required
+            class="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg"
+          >
+        </div>
+        <div class="md:col-span-2 flex items-end">
+          <button
+            type="submit"
+            class="w-full px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition"
+          >
+            📅 Xác Nhận Đặt Phòng (F-07)
+          </button>
+        </div>
+      </form>
+
+      <!-- Bảng Lịch Đặt Phòng Tuần & Điều chỉnh/Hủy Lịch (F-07, F-08) -->
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h3 class="text-sm font-bold text-slate-800">Bảng Lịch Đặt Phòng Trong Tuần &amp; Hủy Lịch Trước 2 Giờ (F-08)</h3>
+        <div class="flex items-center gap-2">
+          <label for="cancel-hours-before" class="text-xs font-semibold text-slate-600">
+            Giả lập thời điểm hủy trước giờ bắt đầu (giờ):
+          </label>
+          <input
+            type="number"
+            id="cancel-hours-before"
+            name="cancel_hours_before"
+            value="4"
+            min="0"
+            max="48"
+            class="w-20 px-2 py-1 text-xs bg-slate-100 border border-slate-300 rounded"
+          >
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-100 text-slate-700 uppercase">
+              <th class="px-3 py-2.5">Mã Đặt Phòng</th>
+              <th class="px-3 py-2.5">Phòng Học</th>
+              <th class="px-3 py-2.5">Người Đặt</th>
+              <th class="px-3 py-2.5">Ngày &amp; Khung Giờ</th>
+              <th class="px-3 py-2.5">Quy Mô &amp; Mục Đích</th>
+              <th class="px-3 py-2.5">Chi Phí</th>
+              <th class="px-3 py-2.5">Trạng Thái</th>
+              <th class="px-3 py-2.5">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="room-schedule-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PHÂN HỆ 5: BẢNG TỔNG QUAN & BÁO CÁO THỐNG KÊ (F-09, F-10) -->
+    <section id="module-dashboard-reports" class="p-6 bg-white border border-slate-200 rounded-xl shadow-sm">
+      <header class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900">
+            📊 Phân hệ 5: Bảng Tổng Quan Thời Gian Thực &amp; Xuất Báo Cáo (F-09, F-10)
+          </h2>
+          <p class="text-xs text-slate-600">
+            Thống kê tỷ lệ tài sản đang mượn, Top 10 học liệu đọc nhiều nhất, xu hướng theo tháng và xuất báo cáo ra Excel (CSV) / PDF.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            id="export-excel-btn"
+            class="px-4 py-2 text-xs font-bold text-white bg-emerald-700 rounded-lg hover:bg-emerald-800 transition"
+          >
+            📥 Xuất Báo Cáo Excel / CSV (F-10)
+          </button>
+          <button
+            type="button"
+            id="export-pdf-btn"
+            class="px-4 py-2 text-xs font-bold text-white bg-slate-800 rounded-lg hover:bg-slate-900 transition"
+          >
+            🖨 Xuất Báo Cáo PDF (F-10)
+          </button>
+        </div>
+      </header>
+
+      <!-- 3 Thẻ chỉ số tổng quan -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <article class="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+          <p class="text-xs font-bold text-blue-700 uppercase">Tỷ lệ Tài sản Đang Mượn</p>
+          <p id="metric-borrowed-ratio" class="mt-1 text-2xl font-extrabold text-blue-950"></p>
+          <p class="mt-1 text-xs text-blue-700">Cập nhật theo thời gian thực khi quét QR</p>
+        </article>
+        <article class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+          <p class="text-xs font-bold text-emerald-700 uppercase">Kho Học Liệu Số &amp; Lượt Đọc</p>
+          <p id="metric-total-docs" class="mt-1 text-2xl font-extrabold text-emerald-950"></p>
+          <p class="mt-1 text-xs text-emerald-700">Truy cập trực tuyến 24/7 (PDF / EPUB)</p>
+        </article>
+        <article class="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <p class="text-xs font-bold text-amber-800 uppercase">Tổng Công Nợ Phí Phạt Hiện Tại</p>
+          <p id="metric-total-debt" class="mt-1 text-2xl font-extrabold text-amber-950"></p>
+          <p class="mt-1 text-xs text-amber-800">Tự động khóa quyền mượn khi &ge; 100.000 VNĐ</p>
+        </article>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Cột trái: Phân bổ trạng thái tài sản & Xu hướng theo tháng -->
+        <div class="space-y-5">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 mb-2">Phân bổ Trạng thái Tài sản Vật lý</h3>
+            <div id="dashboard-asset-breakdown" class="space-y-2"></div>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 mb-2">Biểu đồ Xu hướng Sử dụng Theo Tháng (F-09)</h3>
+            <div id="monthly-trend-bars" class="space-y-2"></div>
+          </div>
+        </div>
+
+        <!-- Cột phải: Bảng Top 10 Tài liệu số được đọc nhiều nhất -->
+        <div>
+          <h3 class="text-sm font-bold text-slate-800 mb-2">🏆 Top 10 Tài liệu Số Được Đọc Nhiều Nhất (F-09)</h3>
+          <div class="overflow-x-auto border border-slate-200 rounded-lg">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-700">
+                  <th class="px-3 py-2">Hạng</th>
+                  <th class="px-3 py-2">Tên Tài Liệu</th>
+                  <th class="px-3 py-2">Tác Giả</th>
+                  <th class="px-3 py-2">Dewey</th>
+                  <th class="px-3 py-2 text-right">Lượt Đọc</th>
+                </tr>
+              </thead>
+              <tbody id="top-10-documents-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PHÂN HỆ 6: BẢO MẬT, KIỂM THỬ TĨNH/ĐỘNG & NHẬT KÝ KIỂM TOÁN (F-11, F-12) -->
+    <section id="module-security-audit" class="p-6 bg-white border border-slate-200 rounded-xl shadow-sm space-y-6">
+      <header class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900">
+            🛡 Phân hệ 6: Bảo Mật RBAC, Nhật Ký Kiểm Toán (Audit Trail) &amp; Kiểm Thử Tự Động (F-11, F-12)
+          </h2>
+          <p class="text-xs text-slate-600">
+            Lưu vết bất biến mọi thao tác (Ai thực hiện, Thao tác gì, Thời gian cụ thể) và tích hợp bộ kiểm thử 5 kịch bản theo tài liệu Chiến lược Kiểm thử.
+          </p>
+        </div>
+        <button
+          type="button"
+          id="run-automated-tests-btn"
+          class="px-4 py-2 text-xs font-bold text-white bg-indigo-700 rounded-lg hover:bg-indigo-800 transition shadow"
+        >
+          🧪 Chạy Tự Động 5 Kịch Bản Kiểm Thử (SAST / Dynamic / DAST)
+        </button>
+      </header>
+
+      <!-- Kết quả chạy kiểm thử tự động -->
+      <div id="automated-test-results" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+
+      <!-- Chốt chặn RBAC khi không phải Quản trị viên cố xem Audit Trail (Chống Privilege Escalation) -->
+      <div id="audit-rbac-guard" class="hidden p-4 bg-red-50 border border-red-300 rounded-lg text-xs text-red-900">
+        <strong>🔒 Chốt chặn Bảo mật RBAC (Chống Leo thang Đặc quyền - DAST):</strong>
+        Nhật ký Kiểm toán (Audit Trail - F-12) chỉ dành riêng cho <b>Quản trị viên (Admin / Manager)</b>.
+        Vui lòng chuyển vai trò ở góc phải phía trên sang <em>Lý Hạo Danh (52400175) — Quản trị viên</em> để giám sát nhật ký hệ thống.
+      </div>
+
+      <!-- Bảng Nhật ký Lưu vết (Audit Trail - F-12) -->
+      <div id="audit-table-container" class="overflow-x-auto border border-slate-200 rounded-lg">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-900 text-white uppercase">
+              <th class="px-3 py-2.5">Mã Log</th>
+              <th class="px-3 py-2.5">Thời Gian Cụ Thể</th>
+              <th class="px-3 py-2.5">Tác Tử Thực Hiện</th>
+              <th class="px-3 py-2.5">Mã Hành Động</th>
+              <th class="px-3 py-2.5">Đối Tượng Tác Động</th>
+              <th class="px-3 py-2.5">Chi Tiết Lưu Vết Kiểm Toán</th>
+            </tr>
+          </thead>
+          <tbody id="audit-logs-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-12 bg-slate-900 text-slate-400 py-6 text-center text-xs">
+    <div class="max-w-7xl mx-auto px-4">
+      <p class="font-bold text-white">
+        TRƯỜNG ĐẠI HỌC TÔN ĐỨC THẮNG — KHOA CÔNG NGHỆ THÔNG TIN
+      </p>
+      <p class="mt-1">
+        Đồ án: Hệ thống Thư viện Số &amp; Cho mượn Tài sản Đại học (University Digital Library &amp; Asset Lending Platform)
+      </p>
+      <p class="mt-1">
+        Nhóm 3 (Làng Xi Mi): Lý Hạo Danh (52400175) • Nguyễn Anh Khoa (52400051) • Trần Minh Chiến (52400103) • Hồ Thịnh Phát (51900821)
+      </p>
+    </div>
+  </footer>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
+
