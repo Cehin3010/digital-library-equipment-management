@@ -111,22 +111,22 @@ sequenceDiagram
   participant API as Circulation Service (Laravel)
   participant DB as PostgreSQL 16
 
-  SV->>UI: Chọn tài sản / khung giờ phòng & nhấn Đặt mượn
+  SV->>UI: Chọn tài sản / khung giờ phòng và nhấn Đặt mượn
   UI->>API: POST /api/loans (resource_id, borrow_from, due_date)
-  API->>DB: Kiểm tra phiếu phạt UNPAID (BR01) & xung đột khung giờ
+  API->>DB: Kiểm tra phiếu phạt UNPAID (BR01) và xung đột khung giờ
   alt Đang nợ phạt hoặc trùng khung giờ
     API-->>UI: 403 / 409 Từ chối kèm thông báo nguyên nhân rõ ràng
   else Đủ điều kiện đặt mượn
-    API->>DB: BEGIN; UPDATE resources trừ available_quantity = available_quantity - 1 WHERE available_quantity > 0
+    API->>DB: BEGIN TRANSACTION, trừ available_quantity đi 1 nếu available_quantity còn lớn hơn 0
     alt Số dòng cập nhật = 0 (Vừa hết tài sản)
       API->>DB: ROLLBACK
       API-->>UI: 409 Tài nguyên vừa hết số lượng khả dụng
     else Trừ tồn kho tạm thời thành công
-      API->>DB: INSERT loans (status = HOLDING, hold_expires_at = NOW() + 10 phút) + Ghi audit_logs; COMMIT
-      API-->>UI: 201 Trả về thông tin phiếu & bộ đếm ngược 10 phút (W3)
+      API->>DB: INSERT loans (status = HOLDING, hold_expires_at = NOW + 10 phút), ghi audit_logs, COMMIT
+      API-->>UI: 201 Trả về thông tin phiếu và bộ đếm ngược 10 phút (W3)
       SV->>UI: Nhấn Xác nhận đặt mượn trong thời gian giữ chỗ
       UI->>API: POST /api/loans/{id}/confirm
-      API->>DB: UPDATE loans SET status = PENDING + Sinh mã QR nhận tài sản
+      API->>DB: UPDATE loans SET status = PENDING, sinh mã QR nhận tài sản
       API-->>UI: 200 Xác nhận thành công, hiển thị mã QR nhận tại quầy
     end
   end
@@ -151,22 +151,22 @@ sequenceDiagram
   participant DB as PostgreSQL 16
   participant GW as VNPay / MoMo Sandbox
 
-  SV->>UI: Chọn phiếu phạt UNPAID & nhấn Thanh toán
+  SV->>UI: Chọn phiếu phạt UNPAID và nhấn Thanh toán
   UI->>API: POST /api/penalties/{id}/pay (gateway)
   API->>DB: INSERT payments (status = PENDING, txn_ref duy nhất)
   API-->>UI: 201 Trả về payment_url có chữ ký bảo mật
   UI->>GW: Chuyển hướng sang cổng thanh toán
   SV->>GW: Thực hiện thanh toán trên Sandbox
   GW->>API: POST /api/payments/ipn (txn_ref, amount, response_code, secure_hash)
-  API->>API: Đối chiếu chữ ký HMAC, số tiền & kiểm tra chống trùng txn_ref
-  alt Giao dịch hợp lệ & thành công
-    API->>DB: BEGIN; payments = SUCCESS, penalties = PAID + Ghi audit_logs; COMMIT
+  API->>API: Đối chiếu chữ ký HMAC, số tiền và kiểm tra chống trùng txn_ref
+  alt Giao dịch hợp lệ và thành công
+    API->>DB: BEGIN, payments = SUCCESS, penalties = PAID, ghi audit_logs, COMMIT
   else Giao dịch thất bại hoặc hủy
     API->>DB: UPDATE payments SET status = FAILED
   end
   GW-->>UI: Redirect người dùng về trang kết quả
   UI->>API: GET /api/payments/{txn_ref}/status
-  API-->>UI: Trả về kết quả & mở khóa quyền mượn ngay lập tức (BR06)
+  API-->>UI: Trả về kết quả và mở khóa quyền mượn ngay lập tức (BR06)
 ```
 
 *Hình 2.3. Luồng thanh toán phí phạt và tự động gỡ khóa quyền mượn.*
@@ -223,13 +223,13 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
-  [*] --> HOLDING: Nhấn Đặt mượn (Tạm trừ tồn kho, giữ 10 phút)
-  HOLDING --> PENDING: Người dùng xác nhận (Sinh mã QR phiếu mượn)
+  [*] --> HOLDING: Nhấn Đặt mượn (tạm trừ tồn kho, giữ 10 phút)
+  HOLDING --> PENDING: Người dùng xác nhận (sinh mã QR phiếu mượn)
   HOLDING --> EXPIRED: Quá 10 phút không xác nhận (Scheduler hoàn lại tồn kho)
-  PENDING --> BORROWING: Thủ thư quét QR / Duyệt giao tài sản tại quầy
-  PENDING --> REJECTED: Thủ thư từ chối (Hoàn lại tồn kho)
-  PENDING --> CANCELLED: Người dùng hủy trước hạn (Hoàn lại tồn kho)
-  BORROWING --> RETURNED: Thủ thư quét QR ghi nhận trả (Hoàn tồn kho; tính phạt nếu trễ/hỏng)
+  PENDING --> BORROWING: Thủ thư quét QR / duyệt giao tài sản tại quầy
+  PENDING --> REJECTED: Thủ thư từ chối (hoàn lại tồn kho)
+  PENDING --> CANCELLED: Người dùng hủy trước hạn (hoàn lại tồn kho)
+  BORROWING --> RETURNED: Thủ thư quét QR ghi nhận trả (hoàn tồn kho, tính phạt nếu trễ hoặc hỏng)
   RETURNED --> [*]
   EXPIRED --> [*]
   REJECTED --> [*]
