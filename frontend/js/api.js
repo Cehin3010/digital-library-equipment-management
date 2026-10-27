@@ -3,7 +3,7 @@
  * Tuân thủ Mục 2.3 (JavaScript) và Mục 6 (Error Handling) trong Quy ước Viết mã.
  */
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = '../backend/public/index.php/api';
 
 /**
  * Tải thông tin chi tiết của một tài liệu hoặc sách theo ID.

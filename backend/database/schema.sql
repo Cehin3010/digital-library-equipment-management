@@ -200,3 +200,19 @@ INSERT INTO users (user_id, university_id, full_name, email, password_hash, role
 (3, '52400103', 'Trần Minh Chiến', '52400103@lecturer.tdtu.edu.vn', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 3, 'Khoa Công nghệ Thông tin', 1, 0.00),
 (4, '51900821', 'Hồ Thịnh Phát', '51900821@student.tdtu.edu.vn', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 4, 'Khoa Công nghệ Thông tin', 1, 15000.00);
 
+INSERT INTO digital_documents (document_id, isbn, title, author, category, dewey_code, publish_year, file_format, file_url, total_pages, max_print_pages, view_count, status) VALUES
+(1, '978-0132350884', 'Clean Code: A Handbook of Agile Software Craftsmanship', 'Robert C. Martin', 'Lập trình & Kỹ thuật Phần mềm', '005.1', 2021, 'PDF', '/uploads/documents/clean-code.pdf', 464, 15, 342, 'ACTIVE'),
+(2, '978-0135974445', 'Software Engineering (10th Edition)', 'Ian Sommerville', 'Lập trình & Kỹ thuật Phần mềm', '005.1', 2022, 'PDF', '/uploads/documents/software-engineering.pdf', 810, 20, 289, 'ACTIVE'),
+(3, '978-1492052203', 'Fundamentals of Software Architecture', 'Mark Richards & Neal Ford', 'CNTT & Khoa học Máy tính', '004.6', 2023, 'EPUB', '/uploads/documents/software-architecture.epub', 432, 15, 256, 'ACTIVE');
+
+INSERT INTO physical_assets (asset_id, asset_code, asset_name, asset_type, department, location, status, condition_note, daily_late_fee, hourly_rental_fee) VALUES
+(101, 'EQ-IPAD-01', 'Máy tính bảng iPad Pro M2 12.9" + Apple Pencil', 'EQUIPMENT', 'Bộ phận Quản lý Tài sản', 'Tầng 2 - Quầy Thiết bị Số', 'AVAILABLE', 'Tốt - Pin 98%', 25000.00, 0.00),
+(102, 'EQ-PROJ-02', 'Máy chiếu Laser Epson EB-L200F FullHD Wireless', 'EQUIPMENT', 'Bộ phận Quản lý Tài sản', 'Tầng 1 - Quầy Mượn Thiết bị', 'AVAILABLE', 'Tốt - Kèm cáp HDMI', 25000.00, 0.00),
+(103, 'EQ-CAM-03', 'Máy ảnh Sony Alpha A6400 + Gimbal chống rung RS3', 'EQUIPMENT', 'Bộ phận Quản lý Tài sản', 'Tầng 2 - Phòng Studio', 'BORROWED', 'Đang cho mượn', 25000.00, 0.00),
+(106, 'LAB-VR-06', 'Kính thực tế ảo Meta Quest 3 128GB', 'LAB_KIT', 'Bộ phận Quản lý Tài sản', 'Tầng 5 - Trung tâm Sáng tạo Số', 'MAINTENANCE', 'Đang bảo trì định kỳ', 25000.00, 0.00);
+
+INSERT INTO study_rooms (room_id, room_code, room_name, capacity, building, equipment_list, status, hourly_rate) VALUES
+(201, 'RM-GROUP-A201', 'Phòng Học Nhóm Sáng Tạo A201', 8, 'Tòa nhà Thư viện Inspire - Tầng 2', 'Màn hình tương tác 65", Bảng kính, Wifi 6', 'AVAILABLE', 20000.00),
+(202, 'RM-CONF-B305', 'Phòng Thảo Luận & Seminar B305', 16, 'Tòa nhà Thư viện Inspire - Tầng 3', 'Máy chiếu Laser, Hệ thống âm thanh hội nghị', 'AVAILABLE', 30000.00),
+(204, 'RM-STUDIO-D102', 'Phòng Studio Quay Dựng Học Liệu Số D102', 6, 'Tòa nhà Thư viện Inspire - Tầng 1', 'Phông xanh, Đèn Softbox, Micro thu âm', 'MAINTENANCE', 50000.00);
+

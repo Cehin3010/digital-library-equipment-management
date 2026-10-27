@@ -1,0 +1,6 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Điều hướng các request REST API (/api/...) về Backend Front Controller
+    RewriteRule ^api/(.*)$ backend/public/index.php [QSA,L]
+</IfModule>
+

@@ -80,7 +80,9 @@ try {
     );
 
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-    $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+    $rawUri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+    $apiPos = strpos($rawUri, '/api/');
+    $uri = $apiPos !== false ? substr($rawUri, $apiPos) : $rawUri;
     $rawBody = file_get_contents('php://input');
     $jsonBody = is_string($rawBody) && $rawBody !== '' ? (json_decode($rawBody, true) ?? []) : [];
     $actorUserId = (int) ($_SERVER['HTTP_X_ACTOR_USER_ID'] ?? ($jsonBody['actor_user_id'] ?? 1));
