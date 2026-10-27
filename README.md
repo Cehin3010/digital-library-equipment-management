@@ -20,14 +20,30 @@ Bạn chưa quen các từ kỹ thuật? Xem [mục 8. Giải thích thuật ng�
 
 ## 2. Phân công
 
-| Thành viên | MSSV | Vai trò | Phụ trách chính |
-| --- | --- | --- | --- |
-| Lý Hạo Danh | 52400175 | Scrum Master, Product Owner, DevOps | Backlog, Sprint, tài liệu SRS và thiết kế; Docker, Nginx, CI, triển khai server; module báo cáo và email nhắc hạn |
-| Nguyễn Anh Khoa | 52400051 | Backend | Thiết kế và migration PostgreSQL; API Laravel: đăng nhập OTP, tài nguyên, đặt mượn, duyệt, trả, phạt, thanh toán |
-| Trần Minh Chiến | 52400103 | Frontend | Wireframe sang Figma; giao diện React cho cả ba nhóm người dùng; gọi API; responsive |
-| Hồ Thịnh Phát | 51900821 | Tester | Test case, test API, test E2E, test đồng thời cho luồng đặt mượn; ghi bug thành Issue trên GitHub |
+Cả nhóm ngang vai trò, không ai chỉ làm một mảng. Mỗi người **làm trọn một module** từ cơ sở dữ liệu, API, giao diện React đến test và tài liệu, rồi review chéo cho nhau. Cách này chia đều cả backend, frontend, API và báo cáo.
 
-Phân công dựa theo vai trò ở Lab 3, riêng Docker và triển khai giao cho Danh để Khoa tập trung vào API. Nhóm đổi lại nếu thấy không hợp.
+| Thành viên | MSSV | Module phụ trách | Use case, màn hình |
+| --- | --- | --- | --- |
+| Lý Hạo Danh | 52400175 | Tài khoản: đăng nhập OTP, phân quyền, quản lý tài khoản, tham số hệ thống; email nhắc hạn trả | UC01, UC03; US01, US09, US15, US16; màn hình W1, W7 |
+| Nguyễn Anh Khoa | 52400051 | Tài nguyên: danh mục, tra cứu, lịch trống; báo cáo thống kê | UC02, UC04, UC05, UC11; US02, US03, US10, US14; màn hình W2 (tra cứu, lịch trống), W6, màn hình báo cáo |
+| Trần Minh Chiến | 52400103 | Mượn trả: đặt mượn có giữ chỗ 10 phút, hủy, duyệt, từ chối, ghi nhận trả | UC06, UC07, UC08; US04, US05, US11, US12; màn hình W2 (đặt mượn), W3, W5 |
+| Hồ Thịnh Phát | 51900821 | Phạt và thanh toán: lập phiếu phạt, công nợ, lịch sử, thanh toán VNPay và MoMo | UC09, UC10; US06, US07, US08, US13; màn hình W4 |
+
+**Việc chung (mỗi người một phần):**
+
+| Thành viên | Việc chung |
+| --- | --- |
+| Danh | Tạo repo, quy tắc nhánh, bảng GitHub Projects, CI; khởi tạo project Laravel; viết README và tài liệu Chương 1 (tổng quan) |
+| Khoa | Docker Compose, Nginx, Mailpit và Gmail SMTP; triển khai server; sao lưu PostgreSQL 02:00; tài liệu Chương 2 (kiến trúc) |
+| Chiến | Khởi tạo project React + Tailwind, layout theo vai trò, component dùng chung (nút, bảng, form), vẽ lại wireframe trên Figma; tài liệu Chương 4 (giao diện) |
+| Phát | Seeder dữ liệu mẫu, bộ Postman hoặc Swagger mô tả toàn bộ API; tổng hợp ERD và Data Dictionary (Chương 3) |
+
+**Quy tắc chung cho mọi người:**
+
+- Mỗi người tự viết test cho module của mình (test API và các trường hợp lỗi).
+- Review chéo theo cặp: Danh với Khoa, Chiến với Phát. Pull request cần người trong cặp xem và đồng ý mới được ghép.
+- Luồng đặt mượn là chỗ dễ lỗi nhất (race condition): Chiến viết test đồng thời, Danh review và chạy lại độc lập.
+- Module nào cần dữ liệu của module khác thì gọi API của module đó, không sửa thẳng code của nhau; cần sửa thì tạo Issue hoặc nhờ chủ module.
 
 ## 3. Chia việc theo Sprint
 
@@ -35,59 +51,59 @@ Phân công dựa theo vai trò ở Lab 3, riêng Docker và triển khai giao c
 
 | Việc | Người làm |
 | --- | --- |
-| Tạo repo, quy tắc nhánh, cấu trúc thư mục, bảng GitHub Projects | Danh |
-| Viết `docker-compose.yml` gồm `nginx`, `app` (PHP-FPM), `db` (PostgreSQL), `frontend` (Vite), `mailpit` | Danh |
-| Khởi tạo project Laravel, kết nối PostgreSQL, cấu hình CORS cho React, cấu hình gửi mail qua Mailpit | Khoa |
-| Khởi tạo project React + Tailwind, cấu hình Axios, router, layout theo vai trò | Chiến |
-| Tạo `.env.example` cho backend và frontend | Khoa, Chiến |
+| Tạo repo, quy tắc nhánh, bảng GitHub Projects, CI chạy test trên mỗi pull request | Danh |
+| Khởi tạo project Laravel, kết nối PostgreSQL, cấu hình CORS cho React | Danh |
+| Viết `docker-compose.yml` gồm `nginx`, `app` (PHP-FPM), `db` (PostgreSQL), `frontend` (Vite), `mailpit` | Khoa |
+| Khởi tạo project React + Tailwind, Axios, router, layout theo vai trò, component dùng chung | Chiến |
+| `.env.example` cho backend và frontend; bộ Postman hoặc Swagger rỗng để cả nhóm điền dần | Phát |
 
-### Sprint 1: Đăng nhập OTP, Tài nguyên, Tra cứu (US01, US02, US10)
-
-| Việc | Người làm |
-| --- | --- |
-| Migration: `roles`, `users`, `login_otps`, `categories`, `resources` và seeder dữ liệu mẫu | Khoa |
-| API đăng nhập OTP: gửi mã, xác thực mã, cấp token Sanctum (xem mục 5) | Khoa |
-| Middleware phân quyền theo vai trò; chỉ cho phép email của trường | Khoa |
-| API tra cứu có lọc theo loại, danh mục; chỉ mục tìm kiếm PostgreSQL (GIN) | Khoa |
-| API CRUD tài nguyên (xóa mềm) | Khoa |
-| Màn hình W1 Đăng nhập (nhập email, rồi nhập mã OTP), W2 Tra cứu, W6 Quản lý tài nguyên | Chiến |
-| Test OTP sai, hết hạn, nhập sai quá số lần, gửi lại; test phân quyền; đo tra cứu dưới 2 giây | Phát |
-| Chạy CI (kiểm tra code, chạy test) trên mỗi pull request | Danh |
-
-### Sprint 2: Đặt mượn, Duyệt phiếu, Quản lý kho (US03, US04, US05, US11, US12)
+### Sprint 1: Tài khoản, Tài nguyên, Tra cứu (US01, US02, US10)
 
 | Việc | Người làm |
 | --- | --- |
-| Migration `loans`; API lịch trống theo khung giờ | Khoa |
-| API đặt mượn: kiểm tra nợ phạt, trừ tồn kho trong transaction (`lockForUpdate` hoặc `UPDATE ... WHERE available_quantity > 0`), tạo phiếu HOLDING | Khoa |
-| API xác nhận, hủy phiếu; API duyệt, từ chối; API ghi nhận trả | Khoa |
-| Scheduler mỗi phút: chuyển phiếu quá 10 phút sang EXPIRED và cộng lại tồn kho | Khoa |
-| Màn hình W2 (đặt mượn, lịch trống), W3 (đếm ngược 10 phút), W5 (duyệt, ghi nhận trả) | Chiến |
-| Test đồng thời: nhiều người đặt cùng tài nguyên cuối cùng, tồn kho không được âm | Phát |
-| Test hết hạn giữ chỗ, hủy, từ chối cộng lại đúng tồn kho | Phát |
-| Triển khai bản demo lên server bằng Docker Compose | Danh |
+| Migration `roles`, `users`, `login_otps`; API đăng nhập OTP (gửi mã, xác thực, cấp token Sanctum); middleware phân quyền; chỉ cho email của trường | Danh |
+| Màn hình W1 Đăng nhập hai bước (nhập email, nhập mã OTP); test OTP sai, hết hạn, quá số lần, gửi lại | Danh |
+| Migration `categories`, `resources`; API tra cứu có lọc và chỉ mục tìm kiếm PostgreSQL (GIN); API CRUD tài nguyên (xóa mềm) | Khoa |
+| Màn hình W2 phần tra cứu, W6 Quản lý tài nguyên; test nhập sai số lượng; đo tra cứu dưới 2 giây | Khoa |
+| Migration `loans`; thử nghiệm câu lệnh trừ tồn kho có điều kiện và viết test đồng thời đầu tiên | Chiến |
+| Trang chủ theo vai trò, gắn token vào mọi yêu cầu API, xử lý hết phiên | Chiến |
+| Migration `penalties`, `payments`, `system_settings`; đăng ký tài khoản sandbox VNPay, MoMo | Phát |
+| Seeder dữ liệu mẫu (vai trò, tài khoản, danh mục, tài nguyên); điền API Sprint 1 vào Postman | Phát |
 
-### Sprint 3: Phạt, Thanh toán, Báo cáo (US06, US07, US08, US09, US13, US14, US15, US16)
+### Sprint 2: Đặt mượn, Duyệt phiếu, Quản lý kho, Công nợ (US03, US04, US05, US06, US07, US11, US12, US13, US15, US16)
 
 | Việc | Người làm |
 | --- | --- |
-| Migration `penalties`, `payments`, `system_settings`, `notifications` | Khoa |
-| API lập phiếu phạt (trả trễ tự tính theo `FINE_PER_DAY`, hư hỏng, mất); API công nợ và lịch sử | Khoa |
-| Tích hợp VNPay, MoMo sandbox: tạo giao dịch, nhận IPN, kiểm tra chữ ký, chống xử lý trùng bằng `txn_ref` | Khoa |
-| API quản lý tài khoản, phân quyền, tham số hệ thống | Khoa |
-| API báo cáo lượt mượn trả, vi phạm theo tháng | Danh |
-| Scheduler và email nhắc hạn trả trước 1 ngày | Danh |
-| Màn hình W4 (lịch sử, công nợ, thanh toán), W7 (admin), màn hình báo cáo | Chiến |
-| Test thanh toán thành công, thất bại, hủy; test IPN giả mạo; test tính phạt | Phát |
-| Sao lưu PostgreSQL lúc 02:00 hằng ngày | Danh |
+| API đặt mượn: kiểm tra nợ phạt, trừ tồn kho trong transaction, tạo phiếu HOLDING; API xác nhận, hủy, duyệt, từ chối, ghi nhận trả | Chiến |
+| Scheduler mỗi phút: phiếu quá 10 phút chuyển EXPIRED và cộng lại tồn kho | Chiến |
+| Màn hình W2 phần đặt mượn, W3 (đếm ngược 10 phút), W5 (duyệt, ghi nhận trả); test hết hạn giữ chỗ, hủy, từ chối cộng lại đúng tồn kho | Chiến |
+| API lịch trống theo khung giờ (US03) và màn hình lịch trống trên W2 | Khoa |
+| Triển khai bản demo lên server bằng Docker Compose | Khoa |
+| API quản lý tài khoản, phân quyền, tham số hệ thống (`MAX_ACTIVE_LOANS`, `FINE_PER_DAY`, `HOLD_MINUTES`); màn hình W7 | Danh |
+| API lập phiếu phạt trả trễ tự tính, hư hỏng, mất (gọi từ bước ghi nhận trả của Chiến); API công nợ và lịch sử; màn hình W4 phần lịch sử và công nợ | Phát |
+| Test tính tiền phạt đúng theo số ngày trễ và theo `FINE_PER_DAY` | Phát |
+
+### Sprint 3: Thanh toán, Báo cáo, Nhắc hạn, Hoàn thiện (US08, US09, US14)
+
+| Việc | Người làm |
+| --- | --- |
+| Tích hợp VNPay, MoMo sandbox: tạo giao dịch, nhận IPN, kiểm tra chữ ký, chống xử lý trùng bằng `txn_ref`; màn hình W4 phần thanh toán | Phát |
+| Test thanh toán thành công, thất bại, hủy; test IPN giả mạo | Phát |
+| API báo cáo lượt mượn trả và vi phạm theo tháng; màn hình báo cáo | Khoa |
+| Sao lưu PostgreSQL lúc 02:00 hằng ngày | Khoa |
+| Email nhắc hạn trả trước 1 ngày (Scheduler, Queue, bảng `notifications`) | Danh |
+| Rà lại toàn bộ phân quyền theo vai trò trên mọi API | Danh |
+| Làm giao diện responsive cho mọi màn hình, thống nhất thông báo thành công, lỗi | Chiến |
+| Test hồi quy luồng đặt mượn, thử tải 500 người dùng đồng thời | Chiến |
 
 ### Tuần 10: Hoàn thiện
 
 | Việc | Người làm |
 | --- | --- |
-| Sửa lỗi theo danh sách Issue có nhãn `bug` | Khoa, Chiến |
-| Test hồi quy toàn hệ thống, thử tải 500 người dùng đồng thời | Phát |
-| Đóng gói, viết hướng dẫn chạy, chuẩn bị slide demo | Danh |
+| Sửa lỗi theo danh sách Issue có nhãn `bug`, mỗi người sửa lỗi ở module của mình | Cả nhóm |
+| Hoàn thiện Postman hoặc Swagger, ERD và Data Dictionary bản cuối | Phát |
+| Đóng gói, kiểm tra chạy từ đầu theo mục 6 trên máy sạch | Khoa |
+| Chuẩn bị slide và kịch bản demo | Danh, Chiến |
 
 ## 4. Cấu trúc thư mục (dự kiến)
 
@@ -167,11 +183,11 @@ Dừng toàn bộ: `docker compose down`. Xem log: `docker compose logs -f app`.
 
 ## 7. Quy tắc làm việc với Git
 
-- Nhánh chính `main` chỉ nhận code qua pull request, cần ít nhất một người review.
+- Nhánh chính `main` chỉ nhận code qua pull request, cần người review trong cặp (xem mục 2) đồng ý.
 - Mỗi việc là một Issue trên GitHub. Tên nhánh theo số Issue: `feature/<số-issue>-<mô-tả-ngắn>`, ví dụ `feature/12-dat-muon`.
 - Commit nhỏ, lời nhắn rõ ràng, ví dụ `feat: add loan hold expiry job`.
 - Kéo `main` về nhánh của mình trước khi tạo pull request để tránh xung đột.
-- Tạo pull request thì kéo thẻ sang Code Review; Phát kiểm thử xong mới kéo sang Done.
+- Tạo pull request thì kéo thẻ sang Code Review; người review trong cặp đồng ý và ghép xong thì kéo sang Done.
 
 ## 8. Giải thích thuật ngữ
 
