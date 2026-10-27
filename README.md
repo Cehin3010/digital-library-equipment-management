@@ -4,7 +4,7 @@ Nền tảng web cho sinh viên, giảng viên tra cứu và đặt mượn sác
 
 Tài liệu thiết kế: [docs/architecture.md](docs/architecture.md) · [docs/database.md](docs/database.md) · [docs/ui-design.md](docs/ui-design.md)
 
-Bạn chưa quen các từ kỹ thuật? Xem [mục 8. Giải thích thuật ngữ](#8-giải-thích-thuật-ngữ).
+Giải thích thuật ngữ [mục 8. Giải thích thuật ngữ](#8-giải-thích-thuật-ngữ).
 
 ## 1. Công nghệ
 
