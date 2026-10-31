@@ -28,3 +28,4 @@ class PaymentController extends Controller
         return response()->json(['resultCode' => 0, 'message' => 'Successful']);
     }
 }
+

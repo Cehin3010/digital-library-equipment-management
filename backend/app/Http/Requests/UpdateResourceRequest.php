@@ -50,3 +50,4 @@ class UpdateResourceRequest extends FormRequest
         ];
     }
 }
+

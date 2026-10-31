@@ -31,3 +31,4 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] Dọn dẹp bản sao lưu cũ hơn 30 ngà
 find "${BACKUP_DIR}" -type f -name "digital_library_backup_*.sql.gz" -mtime +30 -exec rm -f {} \;
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Quy trình sao lưu kết thúc."
+

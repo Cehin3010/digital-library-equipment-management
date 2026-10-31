@@ -33,3 +33,4 @@ class LoanCirculationController extends Controller
         return $this->successResponse(['status' => 'RETURNED'], 'Ghi nhận nhận trả tài sản thành công');
     }
 }
+

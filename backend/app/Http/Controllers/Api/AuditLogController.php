@@ -12,3 +12,4 @@ class AuditLogController extends Controller
         return $this->successResponse([], 'Danh sách nhật ký kiểm toán');
     }
 }
+

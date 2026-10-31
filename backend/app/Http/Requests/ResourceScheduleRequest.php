@@ -28,3 +28,4 @@ class ResourceScheduleRequest extends FormRequest
         ];
     }
 }
+

@@ -74,3 +74,4 @@ class OnlineReaderApiTest extends TestCase
             ->assertJsonPath('success', false);
     }
 }
+

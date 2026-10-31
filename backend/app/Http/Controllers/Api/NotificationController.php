@@ -17,3 +17,4 @@ class NotificationController extends Controller
         return $this->successResponse(['is_read' => true], 'Đánh dấu đã đọc thành công');
     }
 }
+

@@ -147,3 +147,4 @@ class CategoryResourceSeeder extends Seeder
         }
     }
 }
+

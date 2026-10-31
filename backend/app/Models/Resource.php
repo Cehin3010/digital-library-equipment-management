@@ -157,3 +157,4 @@ class Resource extends Model
         return $query;
     }
 }
+

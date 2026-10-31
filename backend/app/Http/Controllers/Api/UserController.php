@@ -23,3 +23,4 @@ class UserController extends Controller
         return $this->successResponse($request->all(), 'Cập nhật người dùng thành công');
     }
 }
+

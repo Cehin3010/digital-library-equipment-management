@@ -65,3 +65,4 @@ class CategoryApiTest extends TestCase
         $response->assertStatus(403);
     }
 }
+

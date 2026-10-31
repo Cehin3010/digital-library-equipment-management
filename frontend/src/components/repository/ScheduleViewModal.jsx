@@ -187,3 +187,4 @@ export default function ScheduleViewModal({ resource, onClose, onBookNow }) {
     </div>
   );
 }
+

@@ -56,3 +56,4 @@ class Loan extends Model
         return $this->hasMany(Penalty::class, 'loan_id', 'loan_id');
     }
 }
+

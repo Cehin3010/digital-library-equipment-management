@@ -103,3 +103,4 @@ export default function OnlineReaderModal({ resource, onClose }) {
     </div>
   );
 }
+

@@ -23,3 +23,4 @@ class PenaltyController extends Controller
         return $this->successResponse($request->all(), 'Lập phiếu phạt thành công', 201);
     }
 }
+

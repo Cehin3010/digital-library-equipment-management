@@ -72,3 +72,4 @@ class ReportApiTest extends TestCase
         $this->assertStringContainsString('attachment', $response->headers->get('Content-Disposition'));
     }
 }
+

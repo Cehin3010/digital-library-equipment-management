@@ -28,3 +28,4 @@ class AuthController extends Controller
         return $this->successResponse(null, 'Đăng xuất thành công');
     }
 }
+

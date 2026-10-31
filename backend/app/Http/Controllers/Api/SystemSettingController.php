@@ -18,3 +18,4 @@ class SystemSettingController extends Controller
         return $this->successResponse($request->all(), 'Cập nhật tham số hệ thống thành công');
     }
 }
+

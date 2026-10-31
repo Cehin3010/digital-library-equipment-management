@@ -171,3 +171,4 @@ class ResourceApiTest extends TestCase
         ]);
     }
 }
+

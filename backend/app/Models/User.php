@@ -51,3 +51,4 @@ class User extends Authenticatable
         return in_array($currentRole, $roles, true);
     }
 }
+

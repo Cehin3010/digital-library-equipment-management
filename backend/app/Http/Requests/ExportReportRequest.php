@@ -30,3 +30,4 @@ class ExportReportRequest extends FormRequest
         ];
     }
 }
+
