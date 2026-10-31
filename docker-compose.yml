@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: digital_library_nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+      - "80:80"
+    volumes:
+      - ./backend:/var/www/backend
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - app
+      - frontend
+    networks:
+      - library_network
+
+  # Backend PHP 8.3 (Laravel 11) API
+  app:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: digital_library_app
+    restart: unless-stopped
+    working_dir: /var/www/backend
+    volumes:
+      - ./backend:/var/www/backend
+    environment:
+      APP_NAME: "Digital Library"
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: "http://localhost:8080"
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: digital_library
+      DB_USERNAME: library_user
+      DB_PASSWORD: library_secret
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+      SESSION_DRIVER: database
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_USERNAME: "null"
+      MAIL_PASSWORD: "null"
+      MAIL_ENCRYPTION: "null"
+      MAIL_FROM_ADDRESS: "thuvien@university.edu.vn"
+      MAIL_FROM_NAME: "Thư viện số Đại học"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - library_network
+
+  # Database PostgreSQL 16
+  db:
+    image: postgres:16-alpine
+    container_name: digital_library_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: digital_library
+      POSTGRES_USER: library_user
+      POSTGRES_PASSWORD: library_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts:/scripts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U library_user -d digital_library"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - library_network
+
+  # Frontend React (Vite)
+  frontend:
+    build:
+      context: ./docker/frontend
+      dockerfile: Dockerfile
+    container_name: digital_library_frontend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: "http://localhost:8080/api"
+    networks:
+      - library_network
+
+  # Mailpit - Test Mail Server
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: digital_library_mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025" # Web UI
+      - "1025:1025" # SMTP
+    networks:
+      - library_network
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  library_network:
+    driver: bridge
