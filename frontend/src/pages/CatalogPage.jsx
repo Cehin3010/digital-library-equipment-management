@@ -1,24 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search,
   Filter,
   BookOpen,
   Laptop,
-  Layers,
   DoorOpen,
   Calendar,
   Sparkles,
   ChevronLeft,
   ChevronRight,
   MapPin,
-  CheckCircle,
   AlertCircle,
   HelpCircle,
   Clock,
 } from 'lucide-react';
-import { getResources, getCategories } from '../../services/api';
-import OnlineReaderModal from '../../components/repository/OnlineReaderModal';
-import ScheduleViewModal from '../../components/repository/ScheduleViewModal';
+import { getResources, getCategories } from '../services/api';
+import OnlineReaderModal from '../components/repository/OnlineReaderModal';
+import ScheduleViewModal from '../components/repository/ScheduleViewModal';
+import LoanBookingModal from '../components/repository/LoanBookingModal';
 
 export default function CatalogPage() {
   const [resources, setResources] = useState([]);
@@ -28,7 +27,8 @@ export default function CatalogPage() {
 
   // Bộ lọc tìm kiếm
   const [keyword, setKeyword] = useState('');
-  const [selectedType, setSelectedType] = useState('ALL');
+  const [debouncedKeyword, setDebouncedKeyword] = useState('');
+  const [selectedType, setSelectedType] = useState('DIGITAL');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState(null);
@@ -36,7 +36,8 @@ export default function CatalogPage() {
   // Modals
   const [readingResource, setReadingResource] = useState(null);
   const [schedulingResource, setSchedulingResource] = useState(null);
-  const [bookingMessage, setBookingMessage] = useState(null);
+  const [bookingResource, setBookingResource] = useState(null);
+  const [bookingSlot, setBookingSlot] = useState(null);
 
   // Tải danh mục
   useEffect(() => {
@@ -48,14 +49,14 @@ export default function CatalogPage() {
   }, []);
 
   // Tải danh sách tài nguyên
-  const fetchResources = () => {
+  const fetchResources = useCallback(() => {
     setLoading(true);
     setError(null);
 
     const params = {
       page,
       per_page: 9,
-      keyword: keyword.trim(),
+      keyword: debouncedKeyword,
       resource_type: selectedType,
       category_id: selectedCategory,
     };
@@ -71,28 +72,32 @@ export default function CatalogPage() {
       .finally(() => {
         setLoading(false);
       });
-  };
+  }, [page, debouncedKeyword, selectedType, selectedCategory]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setDebouncedKeyword(keyword.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [keyword]);
 
   useEffect(() => {
     fetchResources();
-  }, [page, selectedType, selectedCategory]);
+  }, [fetchResources]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setPage(1);
-    fetchResources();
+    setDebouncedKeyword(keyword.trim());
   };
 
-  const handleBookNow = (resource) => {
-    setBookingMessage({
-      type: 'info',
-      text: `Đang liên kết module Đặt mượn (Trần Minh Chiến) cho tài sản [${resource.code}] ${resource.title}. Phiếu sẽ được giữ chỗ 10 phút.`,
-    });
-    setTimeout(() => setBookingMessage(null), 5000);
+  const handleBookNow = (resource, slot = null) => {
+    setBookingResource(resource);
+    setBookingSlot(slot);
   };
 
   const typeTabs = [
-    { key: 'ALL', label: 'Tất cả', icon: Layers },
     { key: 'DIGITAL', label: 'Tài liệu số (PDF)', icon: BookOpen },
     { key: 'BOOK', label: 'Sách in', icon: BookOpen },
     { key: 'EQUIPMENT', label: 'Thiết bị', icon: Laptop },
@@ -101,15 +106,6 @@ export default function CatalogPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
-      {/* Thông báo thao tác đặt mượn */}
-      {bookingMessage && (
-        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl flex items-center gap-3 shadow-sm animate-fade-in">
-          <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-          <span className="text-sm font-medium">{bookingMessage.text}</span>
-        </div>
-      )}
-
-      {/* Header trang W2 */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-2 text-emerald-600 font-semibold text-sm mb-1 uppercase tracking-wider">
@@ -295,11 +291,24 @@ export default function CatalogPage() {
                       </span>
                     )}
                   </div>
+                  {item.resource_type === 'BOOK' && (
+                    <p className="mt-3 text-xs font-semibold text-emerald-700">Mượn miễn phí</p>
+                  )}
+                  {item.resource_type === 'EQUIPMENT' && (
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-700">
+                      <span>Phí mượn: {Number(item.rental_fee_per_day || 0).toLocaleString('vi-VN')}đ/ngày</span>
+                      <span>Bồi thường mất: {Number(item.replacement_cost || 0).toLocaleString('vi-VN')}đ</span>
+                    </div>
+                  )}
+                  {item.resource_type === 'ROOM' && (
+                    <p className="mt-3 text-xs font-semibold text-slate-700">
+                      Phí đặt: {Number(item.booking_fee_per_hour || 0).toLocaleString('vi-VN')}đ/giờ
+                    </p>
+                  )}
                 </div>
 
                 {/* Các nút hành động */}
                 <div className="mt-6 pt-4 border-t border-gray-100 flex items-center gap-2">
-                  {/* Nút Đọc Online cho DIGITAL (F-02) */}
                   {item.resource_type === 'DIGITAL' ? (
                     <button
                       onClick={() => setReadingResource(item)}
@@ -309,7 +318,6 @@ export default function CatalogPage() {
                     </button>
                   ) : (
                     <>
-                      {/* Xem lịch tuần cho ROOM hoặc EQUIPMENT (F-07) */}
                       {(item.resource_type === 'ROOM' || item.resource_type === 'EQUIPMENT') && (
                         <button
                           onClick={() => setSchedulingResource(item)}
@@ -370,15 +378,14 @@ export default function CatalogPage() {
         </div>
       )}
 
-      {/* Modal Đọc Trực Tuyến PDF (F-02) */}
       {readingResource && (
         <OnlineReaderModal
+          key={readingResource.resource_id}
           resource={readingResource}
           onClose={() => setReadingResource(null)}
         />
       )}
 
-      {/* Modal Xem Lịch Tuần (F-07) */}
       {schedulingResource && (
         <ScheduleViewModal
           resource={schedulingResource}
@@ -386,7 +393,16 @@ export default function CatalogPage() {
           onBookNow={handleBookNow}
         />
       )}
+
+      {bookingResource && (
+        <LoanBookingModal
+          resource={bookingResource}
+          initialStartAt={bookingSlot?.startsAt}
+          initialEndAt={bookingSlot?.endsAt}
+          onClose={() => setBookingResource(null)}
+          onSuccess={fetchResources}
+        />
+      )}
     </div>
   );
 }
-

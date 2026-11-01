@@ -7,14 +7,32 @@ import {
   Laptop,
   Layers,
   DoorOpen,
-  FileSpreadsheet,
   Calendar,
   AlertCircle,
   CheckCircle2,
   PieChart,
   RefreshCw,
 } from 'lucide-react';
-import { getDashboardStats, exportReport } from '../../services/api';
+import { getDashboardStats, exportReport } from '../services/api';
+import { csvToXlsx, escapeHtml, parseCsvRows } from '../utils/spreadsheet';
+
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 export default function ReportDashboardPage() {
   const [stats, setStats] = useState(null);
@@ -23,13 +41,13 @@ export default function ReportDashboardPage() {
 
   // Bộ lọc xuất báo cáo F-10
   const [exportType, setExportType] = useState('usage');
-  const [exportFormat, setExportFormat] = useState('csv');
+  const [exportFormat, setExportFormat] = useState('xlsx');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
   const [startDate, setStartDate] = useState(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-      .toISOString()
-      .split('T')[0]
+    formatLocalDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   );
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(formatLocalDate(new Date()));
 
   const loadStats = () => {
     setLoading(true);
@@ -50,13 +68,71 @@ export default function ReportDashboardPage() {
     loadStats();
   }, []);
 
-  const handleExport = () => {
-    exportReport({
-      type: exportType,
-      format: exportFormat,
-      start_date: startDate,
-      end_date: endDate,
-    });
+  const handleExport = async () => {
+    setExportError('');
+    if (startDate > endDate) {
+      setExportError('Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.');
+      return;
+    }
+
+    const printWindow = exportFormat === 'pdf' ? window.open('', '_blank') : null;
+    if (exportFormat === 'pdf' && !printWindow) {
+      setExportError('Trình duyệt đã chặn cửa sổ in. Hãy cho phép cửa sổ bật lên rồi thử lại.');
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const csvBlob = await exportReport({
+        type: exportType,
+        format: 'csv',
+        start_date: startDate,
+        end_date: endDate,
+      });
+      const csvText = await csvBlob.text();
+      const dateRange = `${startDate.replaceAll('-', '')}_${endDate.replaceAll('-', '')}`;
+      const baseName = `bao_cao_${exportType}_${dateRange}`;
+
+      if (exportFormat === 'csv') {
+        downloadBlob(csvBlob, `${baseName}.csv`);
+      } else if (exportFormat === 'xlsx') {
+        downloadBlob(csvToXlsx(csvText, exportType === 'fines' ? 'Cong no phat' : 'Su dung tai san'), `${baseName}.xlsx`);
+      } else {
+        const rows = parseCsvRows(csvText.replace(/^\uFEFF/, ''));
+        const table = rows.map((row, rowIndex) => (
+          `<tr>${row.map((cell) => rowIndex === 0
+            ? `<th>${escapeHtml(cell)}</th>`
+            : `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`
+        )).join('');
+        printWindow.document.open();
+        printWindow.document.write(`<!doctype html>
+          <html lang="vi"><head><meta charset="utf-8"><title>${escapeHtml(baseName)}</title>
+          <style>
+            @page { size: landscape; margin: 14mm; }
+            body { font-family: Arial, sans-serif; color: #0f172a; }
+            h1 { font-size: 20px; margin-bottom: 4px; }
+            p { color: #475569; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 10px; }
+            th, td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; }
+            th { background: #e2e8f0; }
+            tr { break-inside: avoid; }
+          </style></head><body>
+          <h1>${exportType === 'fines' ? 'Báo cáo công nợ phạt' : 'Báo cáo sử dụng tài sản'}</h1>
+          <p>Thời gian: ${escapeHtml(startDate)} – ${escapeHtml(endDate)}</p>
+          <table>${table}</table>
+          </body></html>`);
+        printWindow.document.close();
+        window.setTimeout(() => {
+          printWindow.focus();
+          printWindow.print();
+        }, 300);
+      }
+    } catch (requestError) {
+      printWindow?.close();
+      setExportError(requestError.message || 'Không thể xuất báo cáo.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   if (loading) {
@@ -98,7 +174,7 @@ export default function ReportDashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <span className="text-xs font-bold text-emerald-600 tracking-wider uppercase">
-            Báo cáo Thống kê & Phân tích Học liệu (F-09, F-10)
+            Báo cáo và phân tích
           </span>
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
             Dashboard Báo cáo Thời gian thực
@@ -133,11 +209,9 @@ export default function ReportDashboardPage() {
 
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase">Tỷ lệ đang mượn</p>
-            <h3 className="text-2xl font-black text-blue-600 mt-1">{overview.lending_rate || 0}%</h3>
-            <p className="text-xs text-gray-500 mt-1">
-              {overview.total_borrowed_quantity || 0} / {overview.total_physical_quantity || 0} hiện vật
-            </p>
+            <p className="text-xs font-semibold text-gray-500 uppercase">Phiếu đang mượn</p>
+            <h3 className="text-2xl font-black text-blue-600 mt-1">{stats?.loans_status?.borrowing || 0}</h3>
+            <p className="text-xs text-gray-500 mt-1">{overview.lending_rate || 0}% công suất tài sản</p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
             <TrendingUp className="w-6 h-6" />
@@ -146,9 +220,9 @@ export default function ReportDashboardPage() {
 
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase">Kho tài liệu số</p>
-            <h3 className="text-2xl font-black text-purple-600 mt-1">{byType.DIGITAL || 0}</h3>
-            <p className="text-xs text-gray-500 mt-1">Đọc trực tuyến 24/7</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase">Phiếu quá hạn</p>
+            <h3 className="text-2xl font-black text-amber-600 mt-1">{stats?.loans_status?.overdue || 0}</h3>
+            <p className="text-xs text-gray-500 mt-1">Đang mượn quá ngày trả</p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
             <BookOpen className="w-6 h-6" />
@@ -157,12 +231,12 @@ export default function ReportDashboardPage() {
 
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase">Công nợ phạt chưa đóng</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase">Tổng tiền phạt</p>
             <h3 className="text-2xl font-black text-rose-600 mt-1">
-              {new Intl.NumberFormat('vi-VN').format(penalties.unpaid_amount || 0)}đ
+              {new Intl.NumberFormat('vi-VN').format((penalties.unpaid_amount || 0) + (penalties.paid_amount || 0))}đ
             </h3>
             <p className="text-xs text-rose-600 font-medium mt-1">
-              {penalties.unpaid_count || 0} phiếu vi phạm
+              {new Intl.NumberFormat('vi-VN').format(penalties.unpaid_amount || 0)}đ chưa thanh toán
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
@@ -335,13 +409,13 @@ export default function ReportDashboardPage() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
             <span className="px-2.5 py-1 bg-white/20 text-emerald-200 text-xs font-bold rounded-lg uppercase tracking-wider">
-              Nghiệp vụ Xuất Báo Cáo Định Kỳ (F-10)
+              Xuất báo cáo
             </span>
             <h3 className="text-xl font-bold mt-2">
               Xuất Báo cáo Sử dụng Tài sản & Công nợ Phạt
             </h3>
             <p className="text-emerald-100 text-xs mt-1 max-w-xl">
-              Hỗ trợ định dạng file Excel (.xlsx / .csv) đính kèm UTF-8 BOM hiển thị chuẩn tiếng Việt không lỗi font.
+              Chọn loại báo cáo, khoảng ngày và định dạng tải xuống.
             </p>
           </div>
 
@@ -379,17 +453,30 @@ export default function ReportDashboardPage() {
             </div>
 
             <div className="self-end">
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition shadow-md"
+              <select
+                aria-label="Định dạng báo cáo"
+                value={exportFormat}
+                onChange={(event) => setExportFormat(event.target.value)}
+                className="px-3 py-2.5 bg-white/10 border border-white/20 rounded-xl text-xs text-white focus:outline-none focus:bg-slate-900"
               >
-                <Download className="w-4 h-4" /> Tải tệp Báo cáo (.csv)
+                <option value="xlsx" className="text-gray-900">Excel (.xlsx)</option>
+                <option value="csv" className="text-gray-900">CSV (.csv)</option>
+                <option value="pdf" className="text-gray-900">In / lưu PDF</option>
+              </select>
+
+              <button
+                type="button"
+                disabled={exporting}
+                onClick={handleExport}
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition shadow-md disabled:cursor-wait disabled:opacity-60"
+              >
+                <Download className="w-4 h-4" /> {exporting ? 'Đang xuất...' : 'Xuất báo cáo'}
               </button>
             </div>
           </div>
+          {exportError && <p role="alert" className="mt-4 rounded-lg bg-rose-100 px-3 py-2 text-sm font-medium text-rose-800">{exportError}</p>}
         </div>
       </div>
     </div>
   );
 }
-

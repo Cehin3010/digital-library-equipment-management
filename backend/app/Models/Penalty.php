@@ -16,11 +16,12 @@ class Penalty extends Model
 
     protected $fillable = [
         'loan_id',
+        'room_booking_id',
         'user_id',
-        'penalty_type', // OVERDUE, DAMAGED, LOST
+        'penalty_type', // OVERDUE, DAMAGED, LOST, RENTAL, ROOM_BOOKING
         'overdue_days',
         'amount',
-        'status', // UNPAID, PAID
+        'status', // UNPAID, PAID, WAIVED
         'note',
         'created_by',
         'created_at',
@@ -38,9 +39,13 @@ class Penalty extends Model
         return $this->belongsTo(Loan::class, 'loan_id', 'loan_id');
     }
 
+    public function roomBooking(): BelongsTo
+    {
+        return $this->belongsTo(RoomBooking::class, 'room_booking_id', 'room_booking_id');
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 }
-

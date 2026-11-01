@@ -28,15 +28,49 @@ apiClient.interceptors.response.use(
   (error) => {
     const res = error.response;
     if (res && res.status === 401) {
-      // Hết hạn phiên đăng nhập
-      console.warn('Phiên đăng nhập đã hết hạn.');
+      console.warn('API yêu cầu đăng nhập hoặc token đã hết hạn.');
+      return Promise.reject({
+        ...(res.data || {}),
+        success: false,
+        status: res.status,
+        message: res.data?.message || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+      });
     }
-    return Promise.reject(res?.data || { success: false, message: error.message || 'Lỗi kết nối máy chủ' });
+    return Promise.reject({
+      ...(res?.data || {}),
+      success: false,
+      status: res?.status,
+      code: error.code,
+      message: res?.data?.message || error.message || 'Lỗi kết nối máy chủ',
+    });
   }
 );
 
+// Xác thực và phiên đăng nhập
+export const requestLoginOtp = (email) => apiClient.post('/auth/otp/request', { email });
+
+export const verifyLoginOtp = ({ email, otp }) =>
+  apiClient.post('/auth/otp/verify', { email, otp });
+
+export const getCurrentUser = () => apiClient.get('/auth/me');
+
+export const logoutCurrentUser = () => apiClient.post('/auth/logout');
+
+// Quản trị hệ thống
+export const getAdminUsers = (params = {}) => apiClient.get('/admin/users', { params });
+
+export const createAdminUser = (data) => apiClient.post('/admin/users', data);
+
+export const updateAdminUser = (id, data) => apiClient.patch(`/admin/users/${id}`, data);
+
+export const getSystemSettings = () => apiClient.get('/admin/settings');
+
+export const updateSystemSettings = (data) => apiClient.put('/admin/settings', data);
+
+export const getAuditLogs = (params = {}) => apiClient.get('/admin/audit-logs', { params });
+
 // ==============================================================================
-// 1. Phân hệ Danh mục & Kho Tài nguyên (F-01, F-02 - Nguyễn Anh Khoa phụ trách)
+// Danh mục và kho tài nguyên
 // ==============================================================================
 export const getCategories = (flat = false) => {
   return apiClient.get(`/categories${flat ? '?flat=true' : ''}`);
@@ -76,27 +110,60 @@ export const getResourceSchedule = (id, startDate, endDate) => {
   });
 };
 
-export const getDigitalReadUrl = (id) => {
-  const token = localStorage.getItem('token');
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
-  return `${baseUrl}/resources/${id}/read${token ? `?token=${encodeURIComponent(token)}` : ''}`;
-};
+export const holdLoan = (data) => apiClient.post('/loans/hold', data);
+
+export const confirmLoan = (id) => apiClient.post(`/loans/${id}/confirm`);
+
+export const cancelLoan = (id) => apiClient.post(`/loans/${id}/cancel`);
+
+export const getMyLoans = (params = {}) => apiClient.get('/loans/mine', { params });
+
+export const getMyLoan = (id) => apiClient.get(`/loans/${id}`);
+
+export const getRoomBookings = (params = {}) => apiClient.get('/room-bookings', { params });
+
+export const createRoomBooking = (data) => apiClient.post('/room-bookings', data);
+
+export const cancelRoomBooking = (id) => apiClient.post(`/room-bookings/${id}/cancel`);
+
+export const getCirculationLoans = (params = {}) => apiClient.get('/loans', { params });
+
+export const findLoanByQr = (qr_token) => apiClient.post('/loans/scan-qr', { qr_token });
+
+export const approveLoan = (id) => apiClient.post(`/loans/${id}/approve`);
+
+export const rejectLoan = (id, reason) => apiClient.post(`/loans/${id}/reject`, { reason });
+
+export const returnLoan = (id, return_condition) =>
+  apiClient.post(`/loans/${id}/return`, { return_condition });
+
+export const getDigitalReadFile = (id) =>
+  apiClient.get(`/resources/${id}/read`, { responseType: 'blob' });
 
 // ==============================================================================
-// 2. Phân hệ Báo cáo & Thống kê (F-09, F-10 - Nguyễn Anh Khoa phụ trách)
+// Báo cáo và thống kê
 // ==============================================================================
 export const getDashboardStats = () => {
   return apiClient.get('/reports/dashboard');
 };
 
-export const exportReport = (params = {}) => {
-  const token = localStorage.getItem('token');
-  const query = new URLSearchParams(params).toString();
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
-  
-  // Tải trực tiếp file bằng thẻ tải trình duyệt
-  window.open(`${baseUrl}/reports/export?${query}&token=${token || ''}`, '_blank');
-};
+export const exportReport = (params = {}) =>
+  apiClient.get('/reports/export', { params, responseType: 'blob' });
+
+// Lịch sử, thanh toán và thông báo
+export const getMyHistory = (params = {}) => apiClient.get('/my-loans', { params });
+
+export const getMyPenalties = (params = {}) => apiClient.get('/my-penalties', { params });
+
+export const initiatePenaltyPayment = (id, provider) =>
+  apiClient.post(`/penalties/${id}/pay`, { provider });
+export const simulatePenaltyPayment = (id, provider) =>
+  apiClient.post(`/penalties/${id}/pay-demo`, { provider });
+
+export const getPaymentStatus = (txnRef) => apiClient.get(`/payments/${txnRef}/status`);
+
+export const getNotifications = (params = {}) => apiClient.get('/notifications', { params });
+
+export const markNotificationRead = (id) => apiClient.patch(`/notifications/${id}/read`);
 
 export default apiClient;
-

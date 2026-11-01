@@ -1,190 +1,128 @@
 import React, { useEffect, useState } from 'react';
-import { X, Calendar, Clock, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertCircle, Calendar, CheckCircle2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import WeeklyScheduleGrid from '../common/WeeklyScheduleGrid';
 import { getResourceSchedule } from '../../services/api';
+
+function getWeek(offset = 0) {
+  const monday = new Date();
+  monday.setHours(0, 0, 0, 0);
+  const day = monday.getDay() || 7;
+  monday.setDate(monday.getDate() - day + 1 + offset * 7);
+  return {
+    start: `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`,
+    end: (() => {
+      const sunday = new Date(monday);
+      sunday.setDate(sunday.getDate() + 6);
+      return `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`;
+    })(),
+    monday,
+  };
+}
+
+function toLocalInputValue(date) {
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
 
 export default function ScheduleViewModal({ resource, onClose, onBookNow }) {
   const [scheduleData, setScheduleData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
-
-  // Tính toán khoảng ngày tuần
-  const getWeekDates = (offset = 0) => {
-    const today = new Date();
-    const firstDay = new Date(today.setDate(today.getDate() - today.getDay() + 1 + offset * 7));
-    const lastDay = new Date(today.setDate(firstDay.getDate() + 6));
-
-    return {
-      start_date: firstDay.toISOString().split('T')[0],
-      end_date: lastDay.toISOString().split('T')[0],
-      display_label: `${firstDay.toLocaleDateString('vi-VN')} - ${lastDay.toLocaleDateString('vi-VN')}`,
-    };
-  };
-
-  const weekInfo = getWeekDates(currentWeekOffset);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const week = getWeek(currentWeekOffset);
 
   useEffect(() => {
-    if (!resource) return;
+    if (!resource) return undefined;
+    let active = true;
     setLoading(true);
+    setError('');
 
-    getResourceSchedule(resource.resource_id, weekInfo.start_date, weekInfo.end_date)
-      .then((res) => {
-        setScheduleData(res.data);
+    getResourceSchedule(resource.resource_id, week.start, week.end)
+      .then((response) => {
+        if (active) setScheduleData(response.data);
       })
-      .catch((err) => {
-        console.error('Lỗi tải lịch:', err);
+      .catch((requestError) => {
+        if (active) setError(requestError.message || 'Không thể tải lịch tài nguyên.');
       })
       .finally(() => {
-        setLoading(false);
+        if (active) setLoading(false);
       });
-  }, [resource, currentWeekOffset]);
+
+    return () => { active = false; };
+  }, [resource, week.start, week.end, refreshKey]);
 
   if (!resource) return null;
 
+  const displayEnd = new Date(week.monday);
+  displayEnd.setDate(displayEnd.getDate() + 6);
+  const occupiedSlots = scheduleData?.occupied_slots || [];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[85vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-slate-50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Calendar className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <Calendar className="h-5 w-5" />
             </div>
-            <div>
-              <h3 className="font-bold text-gray-900 text-lg">
-                Lịch sử dụng: {resource.title}
-              </h3>
-              <p className="text-xs text-gray-500">
-                Mã: {resource.code} {resource.location ? `• Vị trí: ${resource.location}` : ''}
-              </p>
+            <div className="min-w-0">
+              <h2 className="truncate text-lg font-bold text-slate-900">Lịch tuần: {resource.title}</h2>
+              <p className="truncate text-xs text-slate-500">{resource.code}{resource.location ? ` · ${resource.location}` : ''}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-200 transition"
-          >
-            <X className="w-5 h-5" />
+          <button type="button" onClick={onClose} aria-label="Đóng lịch" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Thanh chuyển tuần */}
-        <div className="px-6 py-3 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
-          <button
-            onClick={() => setCurrentWeekOffset((prev) => prev - 1)}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition shadow-sm"
-          >
-            <ChevronLeft className="w-4 h-4" /> Tuần trước
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3">
+          <button type="button" onClick={() => setCurrentWeekOffset((offset) => offset - 1)} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+            <ChevronLeft className="h-4 w-4" /> Tuần trước
           </button>
-
-          <span className="text-sm font-semibold text-gray-800">
-            Tuần: {weekInfo.display_label}
+          <span className="text-center text-xs font-bold text-slate-800 sm:text-sm">
+            {week.monday.toLocaleDateString('vi-VN')} – {displayEnd.toLocaleDateString('vi-VN')}
           </span>
-
-          <button
-            onClick={() => setCurrentWeekOffset((prev) => prev + 1)}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition shadow-sm"
-          >
-            Tuần sau <ChevronRight className="w-4 h-4" />
+          <button type="button" onClick={() => setCurrentWeekOffset((offset) => offset + 1)} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+            Tuần sau <ChevronRight className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Nội dung danh sách khung giờ đã kín */}
-        <div className="p-6 overflow-y-auto flex-1">
-          {loading ? (
-            <div className="py-12 text-center text-gray-400">Đang tải lịch trống thời gian thực...</div>
-          ) : scheduleData?.occupied_slots?.length === 0 ? (
-            <div className="py-12 text-center flex flex-col items-center">
-              <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-3">
-                <CheckCircle2 className="w-7 h-7" />
-              </div>
-              <h4 className="font-bold text-gray-800 text-lg">Chưa có ai đặt trong tuần này</h4>
-              <p className="text-sm text-gray-500 mt-1 max-w-sm">
-                Tất cả các khung giờ đều đang sẵn sàng. Bạn có thể tiến hành đặt mượn hoặc giữ chỗ ngay!
-              </p>
+        <div className="space-y-4 overflow-y-auto p-4 sm:p-6">
+          <div className="flex flex-wrap gap-4 text-xs font-medium text-slate-600">
+            <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm border border-emerald-200 bg-emerald-50" /> Còn trống</span>
+            <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm border border-rose-200 bg-rose-50" /> Đã có lịch</span>
+            <span className="text-slate-400">Khung giờ hiển thị: 08:00–20:00</span>
+          </div>
+          {error ? (
+            <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+              <AlertCircle className="h-5 w-5 shrink-0" /> {error}
+              <button type="button" onClick={() => setRefreshKey((key) => key + 1)} className="ml-auto font-bold underline">Thử lại</button>
             </div>
           ) : (
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Các khung giờ đã kín lịch / đang giữ chỗ:
-              </h4>
-              {scheduleData?.occupied_slots?.map((slot, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3.5 bg-red-50/60 border border-red-100 rounded-xl"
-                >
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-red-500 shrink-0" />
-                    <div>
-                      <div className="text-sm font-semibold text-gray-800">
-                        {new Date(slot.borrow_from).toLocaleString('vi-VN', {
-                          weekday: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          day: '2-digit',
-                          month: '2-digit',
-                        })}{' '}
-                        →{' '}
-                        {new Date(slot.due_date).toLocaleString('vi-VN', {
-                          weekday: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          day: '2-digit',
-                          month: '2-digit',
-                        })}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        Phiếu mượn: #{slot.loan_id} {slot.user_code ? `• Người đặt: ${slot.user_code}` : ''}
-                      </div>
-                    </div>
-                  </div>
-
-                  <span
-                    className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                      slot.status === 'HOLDING'
-                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                        : slot.status === 'PENDING'
-                        ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                        : 'bg-red-100 text-red-800 border border-red-200'
-                    }`}
-                  >
-                    {slot.status === 'HOLDING'
-                      ? 'Đang giữ 10p'
-                      : slot.status === 'PENDING'
-                      ? 'Đã xác nhận'
-                      : 'Đang mượn'}
-                  </span>
-                </div>
-              ))}
+            <WeeklyScheduleGrid
+              startDate={week.start}
+              occupiedSlots={occupiedSlots}
+              loading={loading}
+              isAvailable={resource.available_quantity > 0}
+              onSelectTime={onBookNow ? ({ startsAt, endsAt }) => onBookNow(resource, {
+                startsAt: toLocalInputValue(startsAt),
+                endsAt: toLocalInputValue(endsAt),
+              }) : undefined}
+            />
+          )}
+          {!loading && !error && occupiedSlots.length === 0 && (
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800">
+              <CheckCircle2 className="h-4 w-4 shrink-0" /> Chưa có lượt đặt nào trong tuần. Các khung giờ trống có thể chọn để bắt đầu đặt.
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-          <span className="text-xs text-gray-500">
-            Hệ thống tự động khóa chống trùng lịch theo thời gian thực (BR02).
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 transition shadow-sm"
-            >
-              Đóng
-            </button>
-            {onBookNow && resource.available_quantity > 0 && (
-              <button
-                onClick={() => {
-                  onClose();
-                  onBookNow(resource);
-                }}
-                className="px-5 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition shadow-sm"
-              >
-                Đặt mượn ngay
-              </button>
-            )}
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-5 py-3">
+          <span className="text-xs text-slate-500">Chọn ô màu xanh để bắt đầu đặt khung giờ đó.</span>
+          <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Đóng</button>
         </div>
       </div>
     </div>
   );
 }
-

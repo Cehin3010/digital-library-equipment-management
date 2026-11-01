@@ -15,7 +15,7 @@ Hệ thống quản lý tập trung **3 nhóm tài nguyên cốt lõi** và phâ
 ### Ba nhóm tài nguyên trung tâm
 | Nhóm tài nguyên | Bộ phận quản lý | Nghiệp vụ trọng tâm |
 | :--- | :--- | :--- |
-| **1. Tài liệu số** *(e-Book, Bài báo, Giáo trình PDF/EPUB)* | Phòng Thư viện | Kho học liệu điện tử truy cập $24/7$, lọc đa tiêu chí, đọc trực tuyến trên trình duyệt và ghi nhận tiến độ đọc. |
+| **1. Tài liệu số** *(e-Book, Bài báo, Giáo trình PDF)* | Phòng Thư viện | Kho học liệu điện tử truy cập $24/7$, lọc đa tiêu chí, đọc trực tuyến trên trình duyệt và ghi nhận tiến độ đọc. |
 | **2. Tài sản vật lý** *(Thiết bị học tập, Máy chiếu, Camera, Sách in)* | Bộ phận Quản lý Tài sản | Đặt mượn trực tuyến (có cơ chế giữ chỗ tạm thời chống tranh chấp), bàn giao qua mã phiếu/QR tại quầy, theo dõi tình trạng vật lý. |
 | **3. Phòng học & Không gian học tập** *(Phòng nhóm, Phòng thảo luận, Phòng thực hành)* | Phòng Quản lý Cơ sở vật chất | Xem lịch trống dạng bảng tuần, đặt phòng theo khung giờ chống trùng lịch, hủy/điều chỉnh trước giờ sử dụng. |
 
@@ -138,11 +138,26 @@ Toàn bộ các phân hệ khi ghép vào nhánh `develop` phải thỏa mãn 5 
 
 Hệ thống sử dụng phương thức xác thực không mật khẩu thông qua mã OTP gửi về email nhà trường để đảm bảo an toàn và tiện lợi:
 1. Người dùng nhập email trường cấp. Hệ thống kiểm tra tài khoản tồn tại và đang hoạt động.
-2. Backend sinh mã ngẫu nhiên $6$ chữ số, lưu **bản băm (hash)** của mã kèm thời gian hết hạn vào bảng `login_otps`, sau đó đẩy tác vụ gửi email vào hàng đợi (Queue).
+2. Backend sinh mã ngẫu nhiên $6$ chữ số, lưu **bản băm (hash)** của mã kèm thời gian hết hạn vào bảng `login_otps`, sau đó gửi email OTP qua SMTP.
 3. Người dùng nhập mã OTP. Nếu khớp và còn hạn ($5$ phút, tối đa $5$ lần thử sai, cách ít nhất $60$ giây mỗi lần xin cấp lại), hệ thống cấp Token (Laravel Sanctum) và vô hiệu hóa mã vừa dùng.
 
 ### Cấu hình khi phát triển cục bộ (Dùng Mailpit)
-Mailpit chạy sẵn trong Docker, giữ lại toàn bộ email gửi thử tại địa chỉ `http://localhost:8025` mà không cần tài khoản Gmail thật. Cấu hình trong `backend/.env`:
+Mailpit chạy sẵn trong Docker, giữ email thử tại `http://localhost:8025` mà không cần tài khoản Gmail thật. `start_all.ps1` tạo `backend/.env` từ mẫu với cấu hình Mailpit mặc định. Vì vậy OTP **không đi vào hộp thư cá nhân** khi đang dùng cấu hình này. Đăng nhập ban đầu bằng `admin@university.edu.vn`; mở Mailpit để đọc OTP. Có thể đổi email bootstrap trong `backend/.env` trước lần seed cơ sở dữ liệu đầu tiên.
+
+Mỗi lần chạy `.\start_all.ps1`, database demo sẽ được reset bằng `migrate:fresh` rồi seed lại; phiếu mượn, thanh toán và dữ liệu tự thêm sẽ bị xóa. Chỉ restart container hoặc chạy `docker compose up -d` thì không reset. Để giữ database và chỉ áp dụng migration còn thiếu, dùng `.\init-database.ps1`. Các PDF seed là bài đọc minh họa do nhóm tự biên soạn, không phải giáo trình chính thức của TDTU hay bản scan sách thương mại. Khi thủ thư/quản trị viên thêm tài liệu số, phải tải lên PDF thật; backend lưu tệp trong `backend/storage/app/public/digital_assets` (được giữ lại qua bind mount Docker) và trình đọc chỉ phục vụ tệp đã tồn tại. Không có PDF thay thế tự sinh khi thiếu tệp. Các bản sách mẫu có số lượng tồn kho hợp lý; dữ liệu mẫu không tạo phiếu mượn giả. Email OTP được xếp hàng để worker Docker gửi nền, giúp API phản hồi mà không phải chờ SMTP.
+
+Chỉ tải lên tài liệu do nhóm tự biên soạn, tài liệu có giấy phép mở cho phép sử dụng (ví dụ CC BY, tuân thủ điều kiện ghi công/phiên bản), hoặc tài liệu đã được chủ sở hữu quyền cho phép. Không tải bản scan giáo trình, sách hoặc bài báo có bản quyền chỉ vì dùng cho bài tập; thay vào đó ghi nguồn/giấy phép, dùng liên kết tới thư viện/nhà xuất bản, hoặc xin quyền trước khi đưa bản sao vào hệ thống. Các tài liệu số hiện được phân nhóm theo chủ đề môn học; không gán mã học phần TDTU chưa được xác minh.
+
+Bốn tài khoản sinh viên của nhóm được tạo theo MSSV trong README:
+
+| MSSV | Email đăng nhập |
+| :--- | :--- |
+| 52400175 | `52400175@student.tdtu.edu.vn` |
+| 52400051 | `52400051@student.tdtu.edu.vn` |
+| 52400103 | `52400103@student.tdtu.edu.vn` |
+| 51900821 | `51900821@student.tdtu.edu.vn` |
+
+Đây là email định danh mẫu trong môi trường Docker. OTP gửi vào Mailpit tại `http://localhost:8025`, không gửi tới hộp thư TDTU thật.
 
 ```env
 MAIL_MAILER=smtp
@@ -154,6 +169,10 @@ MAIL_ENCRYPTION=null
 MAIL_FROM_ADDRESS="thuvien@university.edu.vn"
 MAIL_FROM_NAME="Thư viện số Đại học"
 ```
+
+Sau khi chỉnh file `.env`, chạy `docker compose up -d --force-recreate app` để Docker nạp lại cấu hình.
+Nếu muốn OTP gửi đến inbox thật, dùng tài khoản Gmail của nhóm, bật xác minh 2 bước, tạo App Password rồi
+điền các giá trị Gmail ở mục dưới vào `backend/.env`. Không dùng mật khẩu đăng nhập Gmail thông thường.
 
 ### Cấu hình khi chạy Demo / Server thật (Dùng Gmail SMTP)
 Sử dụng một tài khoản Gmail riêng của dự án đã bật Xác minh 2 bước và khởi tạo **Mật khẩu ứng dụng (App Password)**:
@@ -169,7 +188,12 @@ MAIL_FROM_ADDRESS=email-du-an@gmail.com
 MAIL_FROM_NAME="Thư viện số Đại học"
 ```
 
-> **Lưu ý bảo mật:** Tuyệt đối **không commit file `.env` lên Git**, chỉ đẩy bản mẫu `.env.example`. Cả luồng gửi mã OTP (`F-11`) và luồng tự động nhắc hạn trả (`F-05`) đều dùng chung cấu hình này thông qua Laravel Queue.
+> **Lưu ý bảo mật:** Tuyệt đối **không commit file `.env` lên Git**, chỉ đẩy bản mẫu `.env.example`. Docker Compose nạp các biến email từ `backend/.env`. Không gửi mật khẩu ứng dụng qua chat hoặc lưu mật khẩu thật trong kho mã nguồn.
+
+Các tham số `MAX_ACTIVE_LOANS`, `HOLD_MINUTES`, `ROOM_CANCEL_HOURS`, `FINE_PER_DAY`,
+`DAMAGE_FINE` và `LOST_FINE` được quản trị viên cấu hình tại trang Quản trị. Hệ thống áp dụng mức
+phạt khi thủ thư ghi nhận trả trễ, hư hỏng hoặc mất tài sản. Container `scheduler` gửi nhắc hạn trả
+qua email và hộp thông báo trong ứng dụng trước hạn 3 ngày và 1 ngày (lịch chạy hằng ngày lúc 08:00).
 
 ---
 
@@ -187,26 +211,68 @@ MAIL_FROM_NAME="Thư viện số Đại học"
 └── README.md
 ```
 
-### Khởi chạy nhanh trên máy mới
-Thực hiện các lệnh dưới đây (sau khi Khoa hoàn tất `docker-compose.yml` ở Tuần 3):
+### Khởi chạy trên Windows
+Mở PowerShell tại thư mục dự án và chạy:
 
-```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-docker compose up -d --build
-docker compose exec app composer install
-docker compose exec app php artisan key:generate
-docker compose exec app php artisan migrate --seed
+```powershell
+.\start_all.ps1
 ```
+
+Script sẽ tạo các file `.env` từ file mẫu nếu chưa có, build và khởi động Docker,
+cài dependency Laravel, tạo `APP_KEY` nếu còn trống, sau đó **xóa database rồi tạo lại schema
+và seed dữ liệu demo**. Phiếu mượn, thanh toán và dữ liệu tự thêm sẽ mất mỗi lần chạy script.
+Chỉ restart container không reset database. Để giữ dữ liệu, dùng `docker compose up -d`;
+để chỉ áp dụng migration còn thiếu, chạy `.\init-database.ps1` khi các container đang chạy.
+
+```powershell
+.\stop_all.ps1
+```
+
+Lệnh trên dừng và xóa container nhưng giữ nguyên dữ liệu database. Để xóa cả dữ liệu database,
+chạy `.\stop_all.ps1 -RemoveVolumes` và gõ `DELETE` khi được hỏi. Lần khởi động kế tiếp sẽ tạo
+database mới và seed lại dữ liệu mẫu.
 
 | Dịch vụ | Địa chỉ truy cập |
 | :--- | :--- |
-| **Giao diện Web (React)** | `http://localhost:5173` |
+| **Giao diện Web (React)** | `http://localhost:5174` |
 | **Backend API (Laravel)** | `http://localhost:8080/api` |
 | **Hộp thư thử nghiệm (Mailpit)** | `http://localhost:8025` |
 
-- **Dừng hệ thống:** `docker compose down`
+- **Dừng hệ thống, giữ database:** `.\stop_all.ps1`
+- **Dừng và xóa database:** `.\stop_all.ps1 -RemoveVolumes`
 - **Theo dõi nhật ký chạy ngầm:** `docker compose logs -f app`
+
+### Chạy kiểm thử backend
+
+Chạy test trong database riêng; không dùng `php artisan test` trực tiếp vì Docker có thể
+trỏ nhầm sang database demo. Test sẽ tự từ chối nếu database thực tế không phải `digital_library_test`.
+
+```powershell
+docker compose exec -e DB_URL= -e DB_DATABASE=digital_library_test -e DB_CONNECTION=pgsql -e APP_ENV=testing -T app php artisan test
+```
+
+### API Mượn – Trả & Đặt phòng (Chiến)
+
+Các API nghiệp vụ nằm dưới `/api` và yêu cầu bearer token Sanctum cùng vai trò phù hợp:
+
+| Nghiệp vụ | Endpoint |
+| :--- | :--- |
+| Giữ chỗ tài sản 10 phút | `POST /api/loans/hold` |
+| Xác nhận / hủy phiếu | `POST /api/loans/{id}/confirm`, `POST /api/loans/{id}/cancel` |
+| Lịch sử phiếu của người dùng | `GET /api/loans/mine` |
+| Lịch phòng / đặt phòng / hủy phòng | `GET|POST /api/room-bookings`, `POST /api/room-bookings/{id}/cancel` |
+| Danh sách phiếu tại quầy | `GET /api/loans` |
+| Tra QR / duyệt / từ chối / ghi nhận trả | `POST /api/loans/scan-qr`, `POST /api/loans/{id}/approve`, `POST /api/loans/{id}/reject`, `POST /api/loans/{id}/return` |
+
+Giao diện tương ứng ở `/my-loans`, `/rooms/schedule` và `/librarian/circulation`. Các API yêu cầu đăng nhập
+dùng OTP qua email và bearer token Sanctum. Tài khoản ban đầu được tạo khi seed cơ sở dữ liệu; người dùng
+khác được quản trị viên tạo trong trang quản trị. Dữ liệu demo có phí thiết bị theo ngày, phí phòng theo giờ,
+phí mượn sách bằng 0, và giá bồi thường mất theo từng tài nguyên. Mức mẫu: máy chiếu 30.000đ/ngày, laptop
+50.000đ/ngày, tablet 30.000đ/ngày; phòng nhóm 20.000đ/giờ, phòng hội thảo 100.000đ/giờ; bồi thường mất
+máy chiếu 15.000.000đ, laptop 20.000.000đ, tablet 10.000.000đ; hư hỏng 50.000đ. Chế độ thanh toán thử VNPay/MoMo trong
+môi trường local chỉ mô phỏng giao dịch, không kết nối cổng và không thu tiền thật. VNPay sandbox thật cần
+`VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` cùng callback URL công khai; MoMo thật cần tài khoản và tích hợp
+credentials riêng, hiện chưa bật.
 
 ---
 

@@ -13,6 +13,9 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    public const STATUS_ACTIVE = 'ACTIVE';
+    public const STATUS_LOCKED = 'LOCKED';
+
     protected $table = 'users';
     protected $primaryKey = 'user_id';
 
@@ -51,4 +54,3 @@ class User extends Authenticatable
         return in_array($currentRole, $roles, true);
     }
 }
-

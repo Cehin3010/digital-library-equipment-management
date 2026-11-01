@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus,
   Search,
@@ -21,14 +21,17 @@ import {
   updateResource,
   deleteResource,
   createCategory,
-} from '../../services/api';
-import OnlineReaderModal from '../../components/repository/OnlineReaderModal';
+} from '../services/api';
+import OnlineReaderModal from '../components/repository/OnlineReaderModal';
 
 export default function ResourceManagePage() {
   const [resources, setResources] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState(null);
   const [keyword, setKeyword] = useState('');
+  const [appliedKeyword, setAppliedKeyword] = useState('');
   const [filterType, setFilterType] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('');
   const [notification, setNotification] = useState(null);
@@ -51,6 +54,9 @@ export default function ResourceManagePage() {
     location: '',
     total_quantity: 1,
     available_quantity: 1,
+    rental_fee_per_day: 0,
+    replacement_cost: 200000,
+    booking_fee_per_hour: 0,
     status: 'ACTIVE',
     description: '',
     file: null,
@@ -59,35 +65,47 @@ export default function ResourceManagePage() {
   const [categoryName, setCategoryName] = useState('');
   const [parentCategoryId, setParentCategoryId] = useState('');
 
-  const loadData = () => {
+  const loadData = useCallback((targetPage = page) => {
     setLoading(true);
     Promise.all([
       getResources({
-        keyword,
+        keyword: appliedKeyword,
         resource_type: filterType,
         status: filterStatus,
         include_inactive: true,
-        per_page: 50,
+        page: targetPage,
+        per_page: 12,
       }),
       getCategories(true),
     ])
       .then(([resResources, resCategories]) => {
         setResources(resResources.data?.data || []);
+        setMeta(resResources.data);
         setCategories(resCategories.data || []);
       })
       .catch((err) => {
         showNotice('error', err.message || 'Lỗi khi tải dữ liệu');
       })
       .finally(() => setLoading(false));
-  };
+  }, [appliedKeyword, filterType, filterStatus, page]);
 
   useEffect(() => {
     loadData();
-  }, [filterType, filterStatus]);
+  }, [loadData]);
 
   const showNotice = (type, text) => {
     setNotification({ type, text });
     setTimeout(() => setNotification(null), 5000);
+  };
+
+  const applyKeywordFilter = (event) => {
+    event?.preventDefault();
+    setPage(1);
+    if (appliedKeyword === keyword) {
+      loadData(1);
+    } else {
+      setAppliedKeyword(keyword);
+    }
   };
 
   const handleOpenCreateModal = () => {
@@ -101,6 +119,9 @@ export default function ResourceManagePage() {
       location: '',
       total_quantity: 1,
       available_quantity: 1,
+      rental_fee_per_day: 0,
+      replacement_cost: 200000,
+      booking_fee_per_hour: 0,
       status: 'ACTIVE',
       description: '',
       file: null,
@@ -120,6 +141,9 @@ export default function ResourceManagePage() {
       location: res.location || '',
       total_quantity: res.total_quantity,
       available_quantity: res.available_quantity,
+      rental_fee_per_day: res.rental_fee_per_day || 0,
+      replacement_cost: res.replacement_cost || 0,
+      booking_fee_per_hour: res.booking_fee_per_hour || 0,
       status: res.status,
       description: res.description || '',
       file: null,
@@ -130,9 +154,17 @@ export default function ResourceManagePage() {
 
   const handleSubmitForm = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
     setFormErrors({});
 
+    const needsPdf = formData.resource_type === 'DIGITAL'
+      && !formData.file
+      && (!editingResource || editingResource.resource_type !== 'DIGITAL' || !editingResource.file_url);
+    if (needsPdf) {
+      setFormErrors({ file: ['Tài liệu số phải đính kèm tệp PDF thật.'] });
+      return;
+    }
+
+    setSubmitting(true);
     const data = new FormData();
     Object.keys(formData).forEach((key) => {
       if (formData[key] !== null && formData[key] !== undefined) {
@@ -231,11 +263,10 @@ export default function ResourceManagePage() {
         </div>
       )}
 
-      {/* Header trang W6 */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <span className="text-xs font-bold text-emerald-600 tracking-wider uppercase">
-            Nghiệp vụ Quản lý Kho Thư viện (W6 / F-01)
+            Quản lý tài nguyên thư viện
           </span>
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
             Quản lý Kho Tài liệu số, Thiết bị & Phòng học
@@ -264,13 +295,12 @@ export default function ResourceManagePage() {
 
       {/* Bộ lọc tra cứu trong bảng */}
       <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+        <form onSubmit={applyKeywordFilter} className="flex items-center gap-3 flex-1 min-w-[280px]">
           <div className="relative flex-1">
             <input
               type="text"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && loadData()}
               placeholder="Lọc theo tên, mã ISBN, Serial..."
               className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
@@ -278,18 +308,32 @@ export default function ResourceManagePage() {
           </div>
 
           <button
-            onClick={loadData}
+            type="submit"
+            className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition"
+            title="Tìm kiếm"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPage(1);
+              loadData(1);
+            }}
             className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition"
             title="Làm mới"
           >
             <RefreshCw className="w-5 h-5" />
           </button>
-        </div>
+        </form>
 
         <div className="flex items-center gap-3">
           <select
             value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
+            onChange={(e) => {
+              setPage(1);
+              setFilterType(e.target.value);
+            }}
             className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs sm:text-sm text-gray-700"
           >
             <option value="ALL">Tất cả loại</option>
@@ -301,7 +345,10 @@ export default function ResourceManagePage() {
 
           <select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
+            onChange={(e) => {
+              setPage(1);
+              setFilterStatus(e.target.value);
+            }}
             className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs sm:text-sm text-gray-700"
           >
             <option value="">Tất cả trạng thái</option>
@@ -431,6 +478,33 @@ export default function ResourceManagePage() {
         </div>
       </div>
 
+      {meta && meta.last_page > 1 && (
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-gray-500">
+            Trang <strong className="text-gray-900">{meta.current_page}</strong> /{' '}
+            <strong className="text-gray-900">{meta.last_page}</strong> · {meta.total} tài nguyên
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Trang trước
+            </button>
+            <button
+              type="button"
+              disabled={page >= meta.last_page || loading}
+              onClick={() => setPage((current) => Math.min(meta.last_page, current + 1))}
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Trang sau
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Modal Thêm mới / Cập nhật Tài nguyên */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
@@ -455,7 +529,20 @@ export default function ResourceManagePage() {
                   </label>
                   <select
                     value={formData.resource_type}
-                    onChange={(e) => setFormData({ ...formData, resource_type: e.target.value })}
+                    onChange={(e) => {
+                      const resourceType = e.target.value;
+                      setFormData({
+                        ...formData,
+                        resource_type: resourceType,
+                        rental_fee_per_day: resourceType === 'EQUIPMENT' ? formData.rental_fee_per_day || 10000 : 0,
+                        replacement_cost: resourceType === 'BOOK'
+                          ? formData.replacement_cost || 200000
+                          : resourceType === 'EQUIPMENT'
+                            ? formData.replacement_cost || 1000000
+                            : 0,
+                        booking_fee_per_hour: resourceType === 'ROOM' ? formData.booking_fee_per_hour || 20000 : 0,
+                      });
+                    }}
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                   >
                     <option value="BOOK">Sách in (BOOK)</option>
@@ -593,18 +680,44 @@ export default function ResourceManagePage() {
                 </div>
               </div>
 
+              {(formData.resource_type === 'EQUIPMENT' || formData.resource_type === 'BOOK') && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <label className="block text-xs font-bold text-gray-700">
+                    Phí mượn mỗi ngày (VNĐ)
+                    <input type="number" min="0" value={formData.resource_type === 'BOOK' ? 0 : formData.rental_fee_per_day} disabled={formData.resource_type === 'BOOK'} onChange={(e) => setFormData({ ...formData, rental_fee_per_day: Number(e.target.value) || 0 })} className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm disabled:bg-gray-100" />
+                    {formData.resource_type === 'BOOK' && <span className="mt-1 block font-normal text-emerald-700">Sách luôn được mượn miễn phí.</span>}
+                  </label>
+                  <label className="block text-xs font-bold text-gray-700">
+                    Giá trị bồi thường nếu mất (VNĐ)
+                    <input type="number" min="0" value={formData.replacement_cost} onChange={(e) => setFormData({ ...formData, replacement_cost: Number(e.target.value) || 0 })} className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
+                  </label>
+                </div>
+              )}
+
+              {formData.resource_type === 'ROOM' && (
+                <label className="block text-xs font-bold text-gray-700">
+                  Phí đặt mỗi giờ (VNĐ)
+                  <input type="number" min="0" value={formData.booking_fee_per_hour} onChange={(e) => setFormData({ ...formData, booking_fee_per_hour: Number(e.target.value) || 0 })} className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
+                </label>
+              )}
+
               {/* Upload file PDF nếu là DIGITAL */}
               {formData.resource_type === 'DIGITAL' && (
                 <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl">
                   <label className="block text-xs font-bold text-emerald-800 uppercase mb-1 flex items-center gap-1.5">
-                    <Upload className="w-4 h-4" /> Tệp tin PDF / EPUB (Online Reader F-02)
+                    <Upload className="w-4 h-4" /> Tệp tin PDF {!editingResource && '*'}
                   </label>
                   <input
                     type="file"
-                    accept=".pdf,.epub"
+                    accept=".pdf,application/pdf"
+                    required={!editingResource || (editingResource.resource_type !== 'DIGITAL' && formData.resource_type === 'DIGITAL') || !editingResource.file_url}
                     onChange={(e) => setFormData({ ...formData, file: e.target.files[0] })}
                     className="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700"
                   />
+                  <p className="mt-2 text-xs text-emerald-900">
+                    Tệp được lưu tại backend/storage/app/public/digital_assets; chỉ tải tài liệu bạn có quyền sử dụng.
+                    {editingResource?.file_url && !formData.file ? ' Đang giữ tệp hiện tại; chọn file mới nếu muốn thay thế.' : ''}
+                  </p>
                   {formErrors.file && (
                     <p className="text-xs text-rose-500 mt-1">{formErrors.file[0]}</p>
                   )}
@@ -706,6 +819,7 @@ export default function ResourceManagePage() {
       {/* Preview Online Reader Modal */}
       {previewResource && (
         <OnlineReaderModal
+          key={previewResource.resource_id}
           resource={previewResource}
           onClose={() => setPreviewResource(null)}
         />
@@ -713,4 +827,3 @@ export default function ResourceManagePage() {
     </div>
   );
 }
-

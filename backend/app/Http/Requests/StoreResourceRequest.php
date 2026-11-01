@@ -19,12 +19,15 @@ class StoreResourceRequest extends FormRequest
             'title' => ['required', 'string', 'max:255'],
             'author_or_brand' => ['nullable', 'string', 'max:150'],
             'code' => ['required', 'string', 'max:50', 'unique:resources,code'],
-            'file' => ['nullable', 'file', 'mimes:pdf,epub', 'max:51200'], // Tối đa 50MB
+            'file' => ['required_if:resource_type,DIGITAL', 'file', 'mimes:pdf', 'max:51200'],
             'file_url' => ['nullable', 'string', 'max:500'],
             'description' => ['nullable', 'string'],
             'location' => ['nullable', 'string', 'max:100'],
             'total_quantity' => ['required', 'integer', 'min:0'],
             'available_quantity' => ['required', 'integer', 'min:0', 'lte:total_quantity'],
+            'rental_fee_per_day' => ['nullable', 'integer', 'min:0'],
+            'replacement_cost' => ['nullable', 'integer', 'min:0'],
+            'booking_fee_per_hour' => ['nullable', 'integer', 'min:0'],
             'status' => ['nullable', 'string', 'in:ACTIVE,MAINTENANCE,INACTIVE'],
         ];
     }
@@ -39,7 +42,8 @@ class StoreResourceRequest extends FormRequest
             'title.required' => 'Tiêu đề/Tên tài nguyên không được để trống.',
             'code.required' => 'Mã ISBN/Serial/Mã phòng là bắt buộc.',
             'code.unique' => 'Mã tài nguyên này đã tồn tại trong hệ thống.',
-            'file.mimes' => 'Tệp tải lên phải có định dạng PDF hoặc EPUB.',
+            'file.required_if' => 'Tài liệu số phải đính kèm tệp PDF thật.',
+            'file.mimes' => 'Tệp tải lên phải có định dạng PDF.',
             'file.max' => 'Dung lượng tệp tài liệu số không được vượt quá 50MB.',
             'total_quantity.required' => 'Tổng số lượng là bắt buộc.',
             'total_quantity.min' => 'Tổng số lượng không được âm.',
@@ -49,4 +53,3 @@ class StoreResourceRequest extends FormRequest
         ];
     }
 }
-

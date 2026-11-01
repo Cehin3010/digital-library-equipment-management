@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\LoanCirculationController;
 use App\Http\Controllers\Api\PenaltyController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\RoomBookingController;
 
 // Health-check endpoint
 Route::get('/health', fn () => response()->json(['success' => true, 'message' => 'API is running']));
@@ -23,11 +24,13 @@ Route::get('/health', fn () => response()->json(['success' => true, 'message' =>
 |--------------------------------------------------------------------------
 */
 Route::prefix('auth')->group(function () {
-    Route::post('/request-otp', [AuthController::class, 'requestOtp']);
-    Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
+    Route::prefix('otp')->name('auth.otp.')->group(function () {
+        Route::post('/request', [AuthController::class, 'requestLoginOtp'])->middleware('throttle:10,1')->name('request');
+        Route::post('/verify', [AuthController::class, 'verifyLoginOtp'])->middleware('throttle:20,1')->name('verify');
+    });
     Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/me', [AuthController::class, 'me']);
-        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::get('/me', [AuthController::class, 'me'])->name('auth.me');
+        Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout');
     });
 });
 
@@ -71,6 +74,8 @@ Route::middleware('auth:sanctum')->group(function () {
 */
 Route::middleware('auth:sanctum')->prefix('loans')->group(function () {
     Route::middleware('role:STUDENT,LECTURER')->group(function () {
+        Route::get('/mine', [LoanController::class, 'mine']);
+        Route::get('/{id}', [LoanController::class, 'showMine'])->whereNumber('id');
         Route::post('/hold', [LoanController::class, 'hold']);
         Route::post('/{id}/confirm', [LoanController::class, 'confirm']);
         Route::post('/{id}/cancel', [LoanController::class, 'cancel']);
@@ -85,6 +90,12 @@ Route::middleware('auth:sanctum')->prefix('loans')->group(function () {
     });
 });
 
+Route::middleware(['auth:sanctum', 'role:STUDENT,LECTURER'])->prefix('room-bookings')->group(function () {
+    Route::get('/', [RoomBookingController::class, 'index']);
+    Route::post('/', [RoomBookingController::class, 'store']);
+    Route::post('/{id}/cancel', [RoomBookingController::class, 'cancel']);
+});
+
 /*
 |--------------------------------------------------------------------------
 | 4. MODULE CỦA HỒ THỊNH PHÁT (F-05, F-06, F-06b: Reminders, Fines & Payments)
@@ -94,6 +105,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my-loans', [PenaltyController::class, 'myLoans']);
     Route::get('/my-penalties', [PenaltyController::class, 'myPenalties']);
     Route::post('/penalties/{id}/pay', [PaymentController::class, 'initiatePayment']);
+    Route::post('/penalties/{id}/pay-demo', [PaymentController::class, 'simulatePayment']);
     Route::get('/payments/{txnRef}/status', [PaymentController::class, 'checkStatus']);
 
     Route::get('/notifications', [NotificationController::class, 'index']);
@@ -105,5 +117,5 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Public Webhook IPN từ VNPay & MoMo
 Route::match(['get', 'post'], '/payments/vnpay-ipn', [PaymentController::class, 'vnpayIpn']);
+Route::get('/payments/vnpay-return', [PaymentController::class, 'vnpayReturn']);
 Route::post('/payments/momo-ipn', [PaymentController::class, 'momoIpn']);
-

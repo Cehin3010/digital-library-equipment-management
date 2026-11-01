@@ -27,12 +27,18 @@ class Resource extends Model
         'location',
         'total_quantity',
         'available_quantity',
+        'rental_fee_per_day',
+        'replacement_cost',
+        'booking_fee_per_hour',
         'status',
     ];
 
     protected $casts = [
         'total_quantity' => 'integer',
         'available_quantity' => 'integer',
+        'rental_fee_per_day' => 'integer',
+        'replacement_cost' => 'integer',
+        'booking_fee_per_hour' => 'integer',
     ];
 
     protected $appends = [
@@ -102,6 +108,11 @@ class Resource extends Model
         return $this->hasMany(Loan::class, 'resource_id', 'resource_id');
     }
 
+    public function roomBookings(): HasMany
+    {
+        return $this->hasMany(RoomBooking::class, 'resource_id', 'resource_id');
+    }
+
     /**
      * Scope tìm kiếm toàn văn tối ưu bằng GIN Index (< 2 giây)
      */
@@ -157,4 +168,3 @@ class Resource extends Model
         return $query;
     }
 }
-

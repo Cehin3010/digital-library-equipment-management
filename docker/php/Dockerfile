@@ -33,11 +33,11 @@ COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/backend
 
 # Phân quyền thư mục
-RUN chown -R www-data:www-data /var/www
+RUN mkdir -p /var/www/backend/vendor \
+    && chown -R www-data:www-data /var/www
 
 USER www-data
 
 EXPOSE 9000
 
 CMD ["php-fpm"]
-

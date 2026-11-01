@@ -5,12 +5,14 @@ namespace App\Services;
 use App\Models\Category;
 use App\Models\Resource;
 use App\Models\Loan;
+use App\Models\RoomBooking;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Exception;
 
 class ResourceService
@@ -117,8 +119,7 @@ class ResourceService
 
             // Xử lý upload file cho tài liệu số
             if ($uploadedFile && $uploadedFile->isValid()) {
-                $fileName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $uploadedFile->getClientOriginalName());
-                $path = $uploadedFile->storeAs('digital_assets', $fileName, 'public');
+                $path = $uploadedFile->store('digital_assets', 'public');
                 $fileUrl = '/storage/' . $path;
             }
 
@@ -136,9 +137,14 @@ class ResourceService
                 throw new Exception('Số lượng không được âm.');
             }
 
+            if (strtoupper($data['resource_type']) === 'DIGITAL' && blank($fileUrl)) {
+                throw new Exception('Tài liệu số phải đính kèm tệp PDF thật.');
+            }
+
+            $resourceType = strtoupper($data['resource_type']);
             return Resource::create([
                 'category_id' => $data['category_id'],
-                'resource_type' => strtoupper($data['resource_type']),
+                'resource_type' => $resourceType,
                 'title' => trim($data['title']),
                 'author_or_brand' => isset($data['author_or_brand']) ? trim($data['author_or_brand']) : null,
                 'code' => trim($data['code']),
@@ -147,6 +153,9 @@ class ResourceService
                 'location' => $data['location'] ?? null,
                 'total_quantity' => $totalQuantity,
                 'available_quantity' => $availableQuantity,
+                'rental_fee_per_day' => $resourceType === 'EQUIPMENT' ? (int) ($data['rental_fee_per_day'] ?? 0) : 0,
+                'replacement_cost' => (int) ($data['replacement_cost'] ?? 0),
+                'booking_fee_per_hour' => (int) ($data['booking_fee_per_hour'] ?? 0),
                 'status' => $data['status'] ?? 'ACTIVE',
             ]);
         });
@@ -161,8 +170,7 @@ class ResourceService
             $resource = Resource::lockForUpdate()->findOrFail($id);
 
             if ($uploadedFile && $uploadedFile->isValid()) {
-                $fileName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $uploadedFile->getClientOriginalName());
-                $path = $uploadedFile->storeAs('digital_assets', $fileName, 'public');
+                $path = $uploadedFile->store('digital_assets', 'public');
                 $data['file_url'] = '/storage/' . $path;
             }
 
@@ -182,17 +190,28 @@ class ResourceService
                 throw new Exception('Số lượng không được âm.');
             }
 
+            $resourceType = strtoupper($data['resource_type'] ?? $resource->resource_type);
+            $fileUrl = $data['file_url'] ?? $resource->file_url;
+            if ($resourceType === 'DIGITAL' && blank($fileUrl)) {
+                throw new Exception('Tài liệu số phải đính kèm tệp PDF thật.');
+            }
+
             $resource->update([
                 'category_id' => $data['category_id'] ?? $resource->category_id,
-                'resource_type' => isset($data['resource_type']) ? strtoupper($data['resource_type']) : $resource->resource_type,
+                'resource_type' => $resourceType,
                 'title' => isset($data['title']) ? trim($data['title']) : $resource->title,
                 'author_or_brand' => array_key_exists('author_or_brand', $data) ? $data['author_or_brand'] : $resource->author_or_brand,
                 'code' => isset($data['code']) ? trim($data['code']) : $resource->code,
-                'file_url' => $data['file_url'] ?? $resource->file_url,
+                'file_url' => $fileUrl,
                 'description' => array_key_exists('description', $data) ? $data['description'] : $resource->description,
                 'location' => array_key_exists('location', $data) ? $data['location'] : $resource->location,
                 'total_quantity' => $totalQuantity,
                 'available_quantity' => $availableQuantity,
+                'rental_fee_per_day' => $resourceType === 'EQUIPMENT'
+                    ? ($data['rental_fee_per_day'] ?? $resource->rental_fee_per_day)
+                    : 0,
+                'replacement_cost' => $data['replacement_cost'] ?? $resource->replacement_cost,
+                'booking_fee_per_hour' => $data['booking_fee_per_hour'] ?? $resource->booking_fee_per_hour,
                 'status' => $data['status'] ?? $resource->status,
             ]);
 
@@ -233,19 +252,43 @@ class ResourceService
         $start = $startDate ? date('Y-m-d 00:00:00', strtotime($startDate)) : now()->startOfWeek()->toDateTimeString();
         $end = $endDate ? date('Y-m-d 23:59:59', strtotime($endDate)) : now()->endOfWeek()->toDateTimeString();
 
-        $busyLoans = Loan::with('user:user_id,full_name,user_code')
-            ->where('resource_id', $id)
-            ->whereIn('status', ['HOLDING', 'PENDING', 'BORROWING'])
-            ->where(function ($query) use ($start, $end) {
-                $query->whereBetween('borrow_from', [$start, $end])
-                      ->orWhereBetween('due_date', [$start, $end])
-                      ->orWhere(function ($q) use ($start, $end) {
-                          $q->where('borrow_from', '<=', $start)
-                            ->where('due_date', '>=', $end);
-                      });
-            })
-            ->orderBy('borrow_from')
-            ->get();
+        if ($resource->resource_type === 'ROOM') {
+            $busySlots = RoomBooking::with('user:user_id,full_name,user_code')
+                ->where('resource_id', $id)
+                ->where('status', 'CONFIRMED')
+                ->where('starts_at', '<=', $end)
+                ->where('ends_at', '>=', $start)
+                ->orderBy('starts_at')
+                ->get()
+                ->map(fn ($booking) => [
+                    'room_booking_id' => $booking->room_booking_id,
+                    'borrow_from' => $booking->starts_at->toDateTimeString(),
+                    'due_date' => $booking->ends_at->toDateTimeString(),
+                    'status' => $booking->status,
+                    'user_code' => $booking->user?->user_code,
+                ]);
+        } else {
+            $busySlots = Loan::with('user:user_id,full_name,user_code')
+                ->where('resource_id', $id)
+                ->whereIn('status', ['HOLDING', 'PENDING', 'BORROWING'])
+                ->where(function ($query) use ($start, $end) {
+                    $query->whereBetween('borrow_from', [$start, $end])
+                          ->orWhereBetween('due_date', [$start, $end])
+                          ->orWhere(function ($q) use ($start, $end) {
+                              $q->where('borrow_from', '<=', $start)
+                                ->where('due_date', '>=', $end);
+                          });
+                })
+                ->orderBy('borrow_from')
+                ->get()
+                ->map(fn ($loan) => [
+                    'loan_id' => $loan->loan_id,
+                    'borrow_from' => $loan->borrow_from->toDateTimeString(),
+                    'due_date' => $loan->due_date->toDateTimeString(),
+                    'status' => $loan->status,
+                    'user_code' => $loan->user?->user_code,
+                ]);
+        }
 
         return [
             'resource' => [
@@ -259,13 +302,7 @@ class ResourceService
                 'start_date' => $start,
                 'end_date' => $end,
             ],
-            'occupied_slots' => $busyLoans->map(fn ($loan) => [
-                'loan_id' => $loan->loan_id,
-                'borrow_from' => $loan->borrow_from->toDateTimeString(),
-                'due_date' => $loan->due_date->toDateTimeString(),
-                'status' => $loan->status,
-                'user_code' => $loan->user?->user_code,
-            ]),
+            'occupied_slots' => $busySlots,
         ];
     }
 
@@ -284,42 +321,22 @@ class ResourceService
             throw new Exception('Tài liệu số này chưa được gắn tệp tin PDF.');
         }
 
-        // Ghi nhận lượt đọc vào audit_logs (F-02, F-09)
+        if (!str_starts_with($resource->file_url, '/storage/digital_assets/')) {
+            throw new NotFoundHttpException('Tệp PDF không tồn tại trong kho tài liệu.');
+        }
+
+        $relativePath = substr($resource->file_url, strlen('/storage/'));
+        if (!Storage::disk('public')->exists($relativePath)) {
+            throw new NotFoundHttpException('Tệp PDF không tồn tại trong kho tài liệu.');
+        }
+
+        $fullPath = Storage::disk('public')->path($relativePath);
         AuditService::logReading($userId, $resource, $ipAddress);
 
-        // Xác định đường dẫn tệp trên disk
-        $relativePath = str_replace('/storage/', '', $resource->file_url);
-        
-        if (Storage::disk('public')->exists($relativePath)) {
-            $fullPath = Storage::disk('public')->path($relativePath);
-            return response()->file($fullPath, [
-                'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'inline; filename="' . basename($fullPath) . '"',
-                'Cache-Control' => 'no-cache, private',
-            ]);
-        }
-
-        // Nếu file nằm ở thư mục local cố định hoặc demo
-        if (file_exists($relativePath)) {
-            return response()->file($relativePath, [
-                'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'inline; filename="' . basename($relativePath) . '"',
-            ]);
-        }
-
-        // Tạo PDF mẫu tượng trưng nếu chưa có file vật lý
-        return response()->stream(function () use ($resource) {
-            echo "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n";
-            echo "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n";
-            echo "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n";
-            echo "4 0 obj\n<< /Length 85 >>\nstream\nBT\n/F1 16 Tf\n50 720 Td\n(" . addslashes($resource->title) . " - Online Reader Preview) Tj\nET\nendstream\nendobj\n";
-            echo "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n";
-            echo "xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000244 00000 n \n0000000380 00000 n \n";
-            echo "trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n455\n%%EOF\n";
-        }, 200, [
+        return response()->file($fullPath, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $resource->title) . '.pdf"',
+            'Content-Disposition' => 'inline; filename="' . basename($fullPath) . '"',
+            'Cache-Control' => 'no-cache, private',
         ]);
     }
 }
-

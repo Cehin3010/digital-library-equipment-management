@@ -10,6 +10,7 @@ use App\Services\ResourceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 class ResourceController extends Controller
@@ -126,9 +127,10 @@ class ResourceController extends Controller
                 $request->user()?->user_id,
                 $request->ip()
             );
+        } catch (HttpExceptionInterface $e) {
+            return $this->errorResponse($e->getMessage(), null, $e->getStatusCode());
         } catch (Throwable $e) {
             return $this->errorResponse($e->getMessage(), null, 400);
         }
     }
 }
-

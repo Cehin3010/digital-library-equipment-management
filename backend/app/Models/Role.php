@@ -10,6 +10,8 @@ class Role extends Model
 {
     use HasFactory;
 
+    public const VALID_ROLES = ['STUDENT', 'LECTURER', 'LIBRARIAN', 'ADMIN'];
+
     protected $table = 'roles';
     protected $primaryKey = 'role_id';
     public $timestamps = false;
@@ -24,4 +26,3 @@ class Role extends Model
         return $this->hasMany(User::class, 'role_id', 'role_id');
     }
 }
-

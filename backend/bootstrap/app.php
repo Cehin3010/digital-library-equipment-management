@@ -20,11 +20,19 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\RoleMiddleware::class,
         ]);
 
+        $middleware->redirectGuestsTo(
+            fn (Request $request) => $request->is('api/*') ? null : route('login')
+        );
+
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->shouldRenderJsonWhen(
+            fn (Request $request, \Throwable $exception) => $request->is('api/*') || $request->expectsJson()
+        );
+
         // Chuẩn hóa phản hồi JSON cho toàn bộ API theo TASK1.md
         $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
@@ -56,4 +64,3 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
     })->create();
-

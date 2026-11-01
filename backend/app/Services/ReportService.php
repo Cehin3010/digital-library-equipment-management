@@ -44,6 +44,7 @@ class ReportService
         $holdingLoans = Loan::where('status', 'HOLDING')->count();
         $pendingLoans = Loan::where('status', 'PENDING')->count();
         $borrowingLoans = Loan::where('status', 'BORROWING')->count();
+        $overdueLoans = Loan::where('status', 'BORROWING')->where('due_date', '<', now())->count();
         $returnedLoans = Loan::where('status', 'RETURNED')->count();
 
         // 3. Top 10 tài liệu được đọc & mượn nhiều nhất
@@ -110,6 +111,7 @@ class ReportService
                 'holding' => $holdingLoans,
                 'pending' => $pendingLoans,
                 'borrowing' => $borrowingLoans,
+                'overdue' => $overdueLoans,
                 'returned' => $returnedLoans,
             ],
             'top_resources' => $topBorrowed,
@@ -165,7 +167,11 @@ class ReportService
                         $p->penalty_type,
                         $p->overdue_days,
                         number_format($p->amount, 0, ',', '.'),
-                        $p->status === 'PAID' ? 'Đã đóng' : 'Chưa đóng',
+                        match ($p->status) {
+                            'PAID' => 'Đã thanh toán',
+                            'WAIVED' => 'Đã hủy',
+                            default => 'Chưa thanh toán',
+                        },
                         $p->created_at?->format('d/m/Y H:i'),
                         $p->paid_at?->format('d/m/Y H:i') ?? 'N/A',
                         $p->note ?? '',
@@ -199,4 +205,3 @@ class ReportService
         }, 200, $headers);
     }
 }
-
