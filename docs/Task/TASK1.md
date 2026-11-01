@@ -53,8 +53,8 @@ Tài liệu này quy định ranh giới công việc, danh sách RESTful API, b
 
 | Method & Endpoint | Quyền truy cập | Logic xử lý chi tiết tại Backend (Laravel) |
 | :--- | :--- | :--- |
-| `POST /api/auth/request-otp` | Public | 1. Validate `email` phải thuộc đuôi email trường và có trong bảng `users` với `status = 'ACTIVE'` (`BR08`).<br>2. Kiểm tra trong `login_otps` nếu mã gần nhất tạo chưa quá **60 giây** thì báo lỗi chờ.<br>3. Sinh mã 6 chữ số (`random_int(100000, 999999)`), băm bằng `Hash::make()` lưu vào `login_otps` (`expires_at = now()->addMinutes(5)`, `attempts = 0`).<br>4. Đẩy Job gửi email OTP vào **Laravel Queue** (hiển thị trên Mailpit cổng `8025`). |
-| `POST /api/auth/verify-otp` | Public | 1. Tìm bản ghi OTP mới nhất của `email`. Kiểm tra `expires_at > now()` và `attempts < 5`.<br>2. Kiểm tra `Hash::check($otp, $record->otp_hash)`. Nếu sai: tăng `attempts` lên 1, trả lỗi `422`.<br>3. Nếu đúng: xóa OTP đã dùng, cập nhật `last_login_at`, cấp token `$user->createToken('api')->plainTextToken`, ghi `audit_logs` và trả về thông tin user kèm `role_name`. |
+| `POST /api/auth/otp/request` | Public | 1. Validate `email` phải thuộc đuôi email trường và có trong bảng `users` với `status = 'ACTIVE'` (`BR08`).<br>2. Kiểm tra trong `login_otps` nếu mã gần nhất tạo chưa quá **60 giây** thì báo lỗi chờ.<br>3. Sinh mã 6 chữ số (`random_int(100000, 999999)`), băm bằng `Hash::make()` lưu vào `login_otps` (`expires_at = now()->addMinutes(5)`, `attempts = 0`).<br>4. Đẩy Job gửi email OTP vào **Laravel Queue** (hiển thị trên Mailpit cổng `8025`). |
+| `POST /api/auth/otp/verify` | Public | 1. Tìm bản ghi OTP mới nhất của `email`. Kiểm tra `expires_at > now()` và `attempts < 5`.<br>2. Kiểm tra `Hash::check($otp, $record->otp_hash)`. Nếu sai: tăng `attempts` lên 1, trả lỗi `422`.<br>3. Nếu đúng: xóa OTP đã dùng, cập nhật `last_login_at`, cấp token `$user->createToken('api')->plainTextToken`, ghi `audit_logs` và trả về thông tin user kèm `role_name`. |
 | `POST /api/auth/logout` | Đã đăng nhập | Xóa token hiện hành (`$request->user()->currentAccessToken()->delete()`) và ghi `audit_logs`. |
 | `GET /api/auth/me` | Đã đăng nhập | Trả về thông tin người dùng hiện tại kèm `role` để Frontend duy trì phiên đăng nhập. |
 | `GET /api/admin/users` | `ADMIN` | Danh sách tài khoản có phân trang, hỗ trợ lọc theo `role_id`, `status` và tìm theo `email` / `user_code`. |
@@ -157,8 +157,10 @@ Route::get('/health', fn () => response()->json(['success' => true, 'message' =>
 |--------------------------------------------------------------------------
 */
 Route::prefix('auth')->group(function () {
-    Route::post('/request-otp', [AuthController::class, 'requestOtp']);
-    Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
+    Route::prefix('otp')->name('auth.otp.')->group(function () {
+        Route::post('/request', [AuthController::class, 'requestLoginOtp'])->name('request');
+        Route::post('/verify', [AuthController::class, 'verifyLoginOtp'])->name('verify');
+    });
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
